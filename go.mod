@@ -56,6 +56,11 @@ require (
 	howett.net/plist v1.0.1
 )
 
+require (
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
+)
+
 //replace github.com/sagernet/sing => ../sing
 
 require (
@@ -91,6 +96,7 @@ require (
 	github.com/sagernet/nftables v0.3.0-beta.4 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tevino/abool/v2 v2.1.0 // indirect
+	github.com/tidwall/gjson v1.18.0
 	github.com/u-root/uio v0.0.0-20230220225925-ffce2a382923 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
 	github.com/zeebo/blake3 v0.2.3 // indirect
