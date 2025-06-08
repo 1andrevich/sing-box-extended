@@ -1,6 +1,6 @@
 module github.com/sagernet/sing-box
 
-go 1.23.6
+go 1.24
 
 toolchain go1.24.3
 
@@ -19,6 +19,7 @@ require (
 	github.com/mholt/acmez v1.2.0
 	github.com/miekg/dns v1.1.63
 	github.com/oschwald/maxminddb-golang v1.12.0
+	github.com/quic-go/quic-go v0.52.0
 	github.com/sagernet/asc-go v0.0.0-20241217030726-d563060fe4e1
 	github.com/sagernet/bbolt v0.0.0-20231014093535-ea5cb2fe9f0a
 	github.com/sagernet/cloudflare-tls v0.0.0-20231208171750-a4483c1b7cd1
@@ -59,6 +60,7 @@ require (
 require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
+	go.uber.org/mock v0.5.0 // indirect
 )
 
 //replace github.com/sagernet/sing => ../sing
@@ -90,7 +92,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.9.7 // indirect
 	github.com/pierrec/lz4/v4 v4.1.14 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/quic-go/qpack v0.4.0 // indirect
+	github.com/quic-go/qpack v0.5.1 // indirect
 	github.com/quic-go/qtls-go1-20 v0.4.1 // indirect
 	github.com/sagernet/netlink v0.0.0-20240612041022-b9a21c07ac6a // indirect
 	github.com/sagernet/nftables v0.3.0-beta.4 // indirect
@@ -103,7 +105,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
-	golang.org/x/time v0.7.0 // indirect
+	golang.org/x/time v0.7.0
 	golang.org/x/tools v0.24.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240227224415-6ceb2ff114de // indirect
