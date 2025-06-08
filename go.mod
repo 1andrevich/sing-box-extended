@@ -19,6 +19,7 @@ require (
 	github.com/mholt/acmez v1.2.0
 	github.com/miekg/dns v1.1.66
 	github.com/oschwald/maxminddb-golang v1.12.0
+	github.com/quic-go/quic-go v0.52.0
 	github.com/sagernet/asc-go v0.0.0-20241217030726-d563060fe4e1
 	github.com/sagernet/bbolt v0.0.0-20231014093535-ea5cb2fe9f0a
 	github.com/sagernet/cloudflare-tls v0.0.0-20231208171750-a4483c1b7cd1
@@ -50,6 +51,7 @@ require (
 	golang.org/x/mod v0.24.0
 	golang.org/x/net v0.40.0
 	golang.org/x/sys v0.33.0
+	golang.org/x/time v0.7.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
 	google.golang.org/grpc v1.72.1
 	google.golang.org/protobuf v1.36.6
@@ -57,8 +59,15 @@ require (
 )
 
 require (
+	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
+	github.com/google/pprof v0.0.0-20231101202521-4ca4178f5c7a // indirect
+	github.com/onsi/ginkgo/v2 v2.9.7 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
+	go.uber.org/mock v0.5.0 // indirect
+	golang.org/x/sync v0.14.0 // indirect
+	golang.org/x/text v0.25.0 // indirect
+	golang.org/x/tools v0.32.0 // indirect
 )
 
 //replace github.com/sagernet/sing => ../sing
@@ -98,10 +107,6 @@ require (
 	github.com/vishvananda/netns v0.0.5 // indirect
 	github.com/zeebo/blake3 v0.2.3 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/sync v0.14.0 // indirect
-	golang.org/x/text v0.25.0 // indirect
-	golang.org/x/time v0.7.0
-	golang.org/x/tools v0.32.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250218202821-56aae31c358a // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
