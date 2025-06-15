@@ -69,6 +69,10 @@ func NewService(configContent string, platformInterface PlatformInterface) (*Box
 		cancel()
 		return nil, E.Cause(err, "create service")
 	}
+	experimentalOptions := common.PtrValueOrDefault(options.Experimental)
+	if experimentalOptions.UnifiedDelay != nil && experimentalOptions.UnifiedDelay.Enabled {
+		ctx = urltest.ContextWithIsUnifiedDelay(ctx)
+	}
 	runtimeDebug.FreeOSMemory()
 	return &BoxService{
 		ctx:                   ctx,
