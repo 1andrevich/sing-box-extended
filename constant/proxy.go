@@ -20,6 +20,7 @@ const (
 	TypeTor          = "tor"
 	TypeSSH          = "ssh"
 	TypeShadowTLS    = "shadowtls"
+	TypeMieru        = "mieru"
 	TypeShadowsocksR = "shadowsocksr"
 	TypeVLESS        = "vless"
 	TypeTUIC         = "tuic"
@@ -79,6 +80,8 @@ func ProxyDisplayName(proxyType string) string {
 		return "TUIC"
 	case TypeHysteria2:
 		return "Hysteria2"
+	case TypeMieru:
+		return "Mieru"
 	case TypeSelector:
 		return "Selector"
 	case TypeURLTest:
