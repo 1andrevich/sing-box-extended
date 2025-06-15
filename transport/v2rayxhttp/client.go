@@ -69,7 +69,7 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 		return requestURL
 	}
 	if dest.IsFqdn() {
-		addresses, err := router.Lookup(ctx, dest.AddrString(), dns.DomainStrategy(options.DomainStrategy))
+		addresses, err := router.Lookup(ctx, dest.Fqdn, dns.DomainStrategy(options.DomainStrategy))
 		if err != nil {
 			return nil, err
 		}
@@ -123,7 +123,7 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 			return requestURL2
 		}
 		if dest2.IsFqdn() {
-			addresses2, err := router.Lookup(ctx, dest2.AddrString(), dns.DomainStrategy(options2.DomainStrategy))
+			addresses2, err := router.Lookup(ctx, dest2.Fqdn, dns.DomainStrategy(options2.DomainStrategy))
 			if err != nil {
 				return nil, err
 			}
