@@ -1,6 +1,6 @@
 module github.com/sagernet/sing-box
 
-go 1.24
+go 1.24.1
 
 toolchain go1.24.3
 
@@ -48,11 +48,11 @@ require (
 	go.uber.org/zap v1.27.0
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
 	golang.org/x/crypto v0.38.0
-	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
+	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394
 	golang.org/x/mod v0.24.0
 	golang.org/x/net v0.40.0
 	golang.org/x/sys v0.33.0
-	golang.org/x/time v0.7.0
+	golang.org/x/time v0.11.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20230429144221-925a1e7659e6
 	google.golang.org/grpc v1.72.1
 	google.golang.org/protobuf v1.36.6
@@ -60,6 +60,9 @@ require (
 )
 
 require (
+	github.com/AdguardTeam/golibs v0.32.7 // indirect
+	github.com/ameshkov/dnscrypt/v2 v2.4.0 // indirect
+	github.com/ameshkov/dnsstamps v1.0.3 // indirect
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/google/pprof v0.0.0-20231101202521-4ca4178f5c7a // indirect
 	github.com/onsi/ginkgo/v2 v2.9.7 // indirect
@@ -109,10 +112,14 @@ require (
 	github.com/zeebo/blake3 v0.2.3 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250218202821-56aae31c358a // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250311190419-81fb87f6b8bf // indirect
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.4.1 // indirect
 )
 
 replace github.com/sagernet/wireguard-go => github.com/getlantern/wireguard-go v0.0.1-beta.5.0.20250303165430-793006c422ec
+
+replace github.com/sagernet/sing-dns => github.com/shtorm-7/sing-dns v0.4.5-extended-1.0.0
+
+replace github.com/ameshkov/dnscrypt/v2 => github.com/shtorm-7/dnscrypt/v2 v2.4.0-extended-1.0.0
