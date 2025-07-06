@@ -26,6 +26,7 @@ import (
 	"github.com/sagernet/sing-box/protocol/tor"
 	"github.com/sagernet/sing-box/protocol/trojan"
 	"github.com/sagernet/sing-box/protocol/tun"
+	"github.com/sagernet/sing-box/protocol/tunnel"
 	"github.com/sagernet/sing-box/protocol/vless"
 	"github.com/sagernet/sing-box/protocol/vmess"
 	E "github.com/sagernet/sing/common/exceptions"
@@ -87,6 +88,9 @@ func OutboundRegistry() *outbound.Registry {
 
 func EndpointRegistry() *endpoint.Registry {
 	registry := endpoint.NewRegistry()
+
+	tunnel.RegisterServerEndpoint(registry)
+	tunnel.RegisterClientEndpoint(registry)
 
 	registerWireGuardEndpoint(registry)
 

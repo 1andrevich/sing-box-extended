@@ -25,6 +25,8 @@ const (
 	TypeVLESS        = "vless"
 	TypeTUIC         = "tuic"
 	TypeHysteria2    = "hysteria2"
+	TypeTunnelClient = "tunnel_client"
+	TypeTunnelServer = "tunnel_server"
 )
 
 const (
@@ -86,6 +88,10 @@ func ProxyDisplayName(proxyType string) string {
 		return "Selector"
 	case TypeURLTest:
 		return "URLTest"
+	case TypeTunnelClient:
+		return "Tunnel Client"
+	case TypeTunnelServer:
+		return "Tunnel Server"
 	default:
 		return "Unknown"
 	}
