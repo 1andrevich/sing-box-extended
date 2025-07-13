@@ -161,8 +161,8 @@ github.com/sagernet/ws v0.0.0-20231204124109-acfe8907c854 h1:6uUiZcDRnZSAegryaUG
 github.com/sagernet/ws v0.0.0-20231204124109-acfe8907c854/go.mod h1:LtfoSK3+NG57tvnVEHgcuBW9ujgE8enPSgzgwStwCAA=
 github.com/shtorm-7/dnscrypt/v2 v2.4.0-extended-1.0.0 h1:e5s7RKBd2rIPR0StbvZ2vTVtJ5jDTsTk5wtIIapZTRg=
 github.com/shtorm-7/dnscrypt/v2 v2.4.0-extended-1.0.0/go.mod h1:WpEFV2uhebXb8Jhes/5/fSdpmhGV8TL22RDaeWwV6hI=
-github.com/shtorm-7/sing-dns v0.4.5-extended-1.0.0 h1:iR0BTDEYwuYfQHwiySBhDOUHaipcizGb54OmC1C6Pz0=
-github.com/shtorm-7/sing-dns v0.4.5-extended-1.0.0/go.mod h1:HWuvH9L2ZwuffhzX5J5ZOjrhLQ8DB5qT9ie/YTXW1nU=
+github.com/shtorm-7/sing-dns v0.4.6-extended-1.0.0 h1:/fyqTYciGYTEbDDySW22t9vY5bSr+lCeLZfjVlv9qgw=
+github.com/shtorm-7/sing-dns v0.4.6-extended-1.0.0/go.mod h1:HWuvH9L2ZwuffhzX5J5ZOjrhLQ8DB5qT9ie/YTXW1nU=
 github.com/spf13/cobra v1.8.1 h1:e5/vxKd/rZsfSJMUX1agtjeTDf+qv1/JdBF8gg5k9ZM=
 github.com/spf13/cobra v1.8.1/go.mod h1:wHxEcudfqmLYa8iTfL+OuZPbBZkmvliBWKIezN3kD9Y=
 github.com/spf13/pflag v1.0.5 h1:iy+VFUOCP1a+8yFto/drg2CJ5u0yRoB7fZw3DKv/JXA=
