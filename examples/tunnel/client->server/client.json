@@ -5,8 +5,8 @@
   "dns": {
     "servers": [
       {
-        "address": "local",
-        "detour": "direct"
+        "type": "local",
+        "tag": "default"
       }
     ]
   },
@@ -46,19 +46,12 @@
   "route": {
     "rules": [
       {
-        "protocol": "dns",
-        "outbound": "dns-out"
-      },
-      {
-        "port": 53,
-        "outbound": "dns-out"
-      },
-      {
         "outbound": "tunnel",
         "override_tunnel_destination": "f79f7678-55e7-432d-a15f-6e8ab2b7fe13"
       }
     ],
     "final": "direct-out",
+    "default_domain_resolver": "default",
     "auto_detect_interface": true
   }
 }

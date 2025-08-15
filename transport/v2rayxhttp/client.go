@@ -23,7 +23,6 @@ import (
 	"github.com/sagernet/sing-box/common/xray/signal/done"
 	"github.com/sagernet/sing-box/common/xray/uuid"
 	"github.com/sagernet/sing-box/option"
-	dns "github.com/sagernet/sing-dns"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/bufio"
 	E "github.com/sagernet/sing/common/exceptions"
@@ -47,7 +46,6 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 	if options.Mode == "" {
 		return nil, E.New("mode is not set")
 	}
-	router := service.FromContext[adapter.Router](ctx)
 	dest := serverAddr
 	var gotlsConfig *gotls.Config
 	if tlsConfig != nil {
@@ -67,13 +65,6 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 		requestURL := baseRequestURL
 		requestURL.Path += sessionId
 		return requestURL
-	}
-	if dest.IsFqdn() {
-		addresses, err := router.Lookup(ctx, dest.Fqdn, dns.DomainStrategy(options.DomainStrategy))
-		if err != nil {
-			return nil, err
-		}
-		dest.Addr = addresses[0]
 	}
 	var xmuxOptions option.V2RayXHTTPXmuxOptions
 	if options.Xmux != nil {
@@ -119,13 +110,6 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 			requestURL2 := baseRequestURL2
 			requestURL2.Path += sessionId
 			return requestURL2
-		}
-		if dest2.IsFqdn() {
-			addresses2, err := router.Lookup(ctx, dest2.Fqdn, dns.DomainStrategy(options2.DomainStrategy))
-			if err != nil {
-				return nil, err
-			}
-			dest2.Addr = addresses2[0]
 		}
 		var xmuxOptions2 option.V2RayXHTTPXmuxOptions
 		if options2.Xmux != nil {
@@ -350,7 +334,7 @@ func createHTTPClient(dest M.Socksaddr, dialer N.Dialer, options *option.V2RayXH
 		transport = &http3.Transport{
 			QUICConfig:      quicConfig,
 			TLSClientConfig: gotlsConfig.Clone(),
-			Dial: func(ctx context.Context, addr string, tlsCfg *gotls.Config, cfg *quic.Config) (quic.EarlyConnection, error) {
+			Dial: func(ctx context.Context, addr string, tlsCfg *gotls.Config, cfg *quic.Config) (*quic.Conn, error) {
 				udpConn, dErr := dialer.DialContext(ctx, N.NetworkUDP, dest)
 				if dErr != nil {
 					return nil, dErr

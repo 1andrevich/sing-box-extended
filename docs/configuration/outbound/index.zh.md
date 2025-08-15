@@ -31,6 +31,7 @@
 | `tuic`         | [TUIC](./tuic/)                 |
 | `hysteria2`    | [Hysteria2](./hysteria2/)       |
 | `mieru`        | [Mieru](./mieru/)               |
+| `anytls`       | [AnyTLS](./anytls/)             |
 | `tor`          | [Tor](./tor/)                   |
 | `ssh`          | [SSH](./ssh/)                   |
 | `dns`          | [DNS](./dns/)                   |

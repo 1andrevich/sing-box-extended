@@ -21,12 +21,17 @@ const (
 	TypeSSH          = "ssh"
 	TypeShadowTLS    = "shadowtls"
 	TypeMieru        = "mieru"
+	TypeAnyTLS       = "anytls"
 	TypeShadowsocksR = "shadowsocksr"
 	TypeVLESS        = "vless"
 	TypeTUIC         = "tuic"
 	TypeHysteria2    = "hysteria2"
 	TypeTunnelClient = "tunnel_client"
 	TypeTunnelServer = "tunnel_server"
+	TypeTailscale    = "tailscale"
+	TypeDERP         = "derp"
+	TypeResolved     = "resolved"
+	TypeSSMAPI       = "ssm-api"
 )
 
 const (
@@ -84,6 +89,8 @@ func ProxyDisplayName(proxyType string) string {
 		return "Hysteria2"
 	case TypeMieru:
 		return "Mieru"
+	case TypeAnyTLS:
+		return "AnyTLS"
 	case TypeSelector:
 		return "Selector"
 	case TypeURLTest:

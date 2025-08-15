@@ -5,8 +5,8 @@
   "dns": {
     "servers": [
       {
-        "address": "local",
-        "detour": "direct"
+        "type": "local",
+        "tag": "default"
       }
     ]
   },
@@ -30,24 +30,11 @@
     {
       "type": "direct",
       "tag": "direct-out"
-    },
-    {
-      "type": "dns",
-      "tag": "dns-out"
     }
   ],
   "route": {
-    "rules": [
-      {
-        "protocol": "dns",
-        "outbound": "dns-out"
-      },
-      {
-        "port": 53,
-        "outbound": "dns-out"
-      }
-    ],
     "final": "direct-out",
+    "default_domain_resolver": "default",
     "auto_detect_interface": true
   }
 }
