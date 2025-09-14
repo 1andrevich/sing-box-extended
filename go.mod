@@ -54,6 +54,7 @@ require (
 	golang.org/x/mod v0.27.0
 	golang.org/x/net v0.43.0
 	golang.org/x/sys v0.35.0
+	golang.org/x/time v0.11.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
 	google.golang.org/grpc v1.73.0
 	google.golang.org/protobuf v1.36.6
@@ -62,14 +63,14 @@ require (
 
 require (
 	github.com/AdguardTeam/golibs v0.32.7 // indirect
-	github.com/ameshkov/dnscrypt/v2 v2.4.0 // indirect
+	github.com/ameshkov/dnscrypt/v2 v2.4.0
 	github.com/ameshkov/dnsstamps v1.0.3 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	go.uber.org/mock v0.5.0 // indirect
 	golang.org/x/sync v0.16.0 // indirect
-	golang.org/x/text v0.27.0 // indirect
-	golang.org/x/tools v0.34.0 // indirect
+	golang.org/x/text v0.28.0 // indirect
+	golang.org/x/tools v0.36.0 // indirect
 )
 
 //replace github.com/sagernet/sing => ../sing
@@ -140,11 +141,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap/exp v0.3.0 // indirect
 	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
-	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/term v0.34.0 // indirect
-	golang.org/x/text v0.28.0 // indirect
-	golang.org/x/time v0.9.0 // indirect
-	golang.org/x/tools v0.36.0 // indirect
 	golang.zx2c4.com/wintun v0.0.0-20230126152724-0fa3db229ce2 // indirect
 	golang.zx2c4.com/wireguard/windows v0.5.3 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250324211829-b45e905df463 // indirect
