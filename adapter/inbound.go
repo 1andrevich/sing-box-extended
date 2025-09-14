@@ -59,6 +59,7 @@ type InboundContext struct {
 	Domain       string
 	Client       string
 	SniffContext any
+	SnifferNames []string
 	SniffError   error
 
 	// cache
@@ -137,8 +138,7 @@ func ExtendContext(ctx context.Context) (context.Context, *InboundContext) {
 
 func OverrideContext(ctx context.Context) context.Context {
 	if metadata := ContextFrom(ctx); metadata != nil {
-		var newMetadata InboundContext
-		newMetadata = *metadata
+		newMetadata := *metadata
 		return WithContext(ctx, &newMetadata)
 	}
 	return ctx
