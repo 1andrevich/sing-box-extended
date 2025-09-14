@@ -181,19 +181,71 @@ func (e *Endpoint) Start(resolve bool) error {
 	e.tunDevice.SetDevice(wgDevice)
 	ipcConf := e.ipcConf
 	if e.options.Amnezia != nil {
-		ipcConf += "\njc=" + strconv.Itoa(e.options.Amnezia.JC) + "\n"
-		ipcConf += "jmin=" + strconv.Itoa(e.options.Amnezia.JMin) + "\n"
-		ipcConf += "jmax=" + strconv.Itoa(e.options.Amnezia.JMax) + "\n"
-		ipcConf += "s1=" + strconv.Itoa(e.options.Amnezia.S1) + "\n"
-		ipcConf += "s2=" + strconv.Itoa(e.options.Amnezia.S2) + "\n"
-		ipcConf += "h1=" + strconv.FormatUint(uint64(e.options.Amnezia.H1), 10) + "\n"
-		ipcConf += "h2=" + strconv.FormatUint(uint64(e.options.Amnezia.H2), 10) + "\n"
-		ipcConf += "h3=" + strconv.FormatUint(uint64(e.options.Amnezia.H3), 10) + "\n"
-		ipcConf += "h4=" + strconv.FormatUint(uint64(e.options.Amnezia.H4), 10)
+		if e.options.Amnezia.JC > 0 {
+			ipcConf += "\njc=" + strconv.Itoa(e.options.Amnezia.JC)
+		}
+		if e.options.Amnezia.JMin > 0 {
+			ipcConf += "\njmin=" + strconv.Itoa(e.options.Amnezia.JMin)
+		}
+		if e.options.Amnezia.JMax > 0 {
+			ipcConf += "\njmax=" + strconv.Itoa(e.options.Amnezia.JMax)
+		}
+		if e.options.Amnezia.S1 > 0 {
+			ipcConf += "\ns1=" + strconv.Itoa(e.options.Amnezia.S1)
+		}
+		if e.options.Amnezia.S2 > 0 {
+			ipcConf += "\ns2=" + strconv.Itoa(e.options.Amnezia.S2)
+		}
+		if e.options.Amnezia.S3 > 0 {
+			ipcConf += "\ns3=" + strconv.Itoa(e.options.Amnezia.S3)
+		}
+		if e.options.Amnezia.S4 > 0 {
+			ipcConf += "\ns4=" + strconv.Itoa(e.options.Amnezia.S4)
+		}
+		if e.options.Amnezia.H1 > 0 {
+			ipcConf += "\nh1=" + strconv.FormatUint(uint64(e.options.Amnezia.H1), 10)
+		}
+		if e.options.Amnezia.H2 > 0 {
+			ipcConf += "\nh2=" + strconv.FormatUint(uint64(e.options.Amnezia.H2), 10)
+		}
+		if e.options.Amnezia.H3 > 0 {
+			ipcConf += "\nh3=" + strconv.FormatUint(uint64(e.options.Amnezia.H3), 10)
+		}
+		if e.options.Amnezia.H4 > 0 {
+			ipcConf += "\nh4=" + strconv.FormatUint(uint64(e.options.Amnezia.H4), 10)
+		}
+		if e.options.Amnezia.I1 != "" {
+			ipcConf += "\ni1=" + e.options.Amnezia.I1
+		}
+		if e.options.Amnezia.I2 != "" {
+			ipcConf += "\ni2=" + e.options.Amnezia.I2
+		}
+		if e.options.Amnezia.I3 != "" {
+			ipcConf += "\ni3=" + e.options.Amnezia.I3
+		}
+		if e.options.Amnezia.I4 != "" {
+			ipcConf += "\ni4=" + e.options.Amnezia.I4
+		}
+		if e.options.Amnezia.I5 != "" {
+			ipcConf += "\ni5=" + e.options.Amnezia.I5
+		}
+		if e.options.Amnezia.J1 != "" {
+			ipcConf += "\nj1=" + e.options.Amnezia.J1
+		}
+		if e.options.Amnezia.J2 != "" {
+			ipcConf += "\nj2=" + e.options.Amnezia.J2
+		}
+		if e.options.Amnezia.J3 != "" {
+			ipcConf += "\nj3=" + e.options.Amnezia.J3
+		}
+		if e.options.Amnezia.ITime > 0 {
+			ipcConf += "\nitime=" + strconv.FormatInt(e.options.Amnezia.ITime, 10)
+		}
 	}
 	for _, peer := range e.peers {
 		ipcConf += peer.GenerateIpcLines()
 	}
+	logger.Errorf(ipcConf)
 	err = wgDevice.IpcSet(ipcConf)
 	if err != nil {
 		return E.Cause(err, "setup wireguard: \n", ipcConf)
