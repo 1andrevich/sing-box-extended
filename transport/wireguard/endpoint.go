@@ -245,7 +245,6 @@ func (e *Endpoint) Start(resolve bool) error {
 	for _, peer := range e.peers {
 		ipcConf += peer.GenerateIpcLines()
 	}
-	logger.Errorf(ipcConf)
 	err = wgDevice.IpcSet(ipcConf)
 	if err != nil {
 		return E.Cause(err, "setup wireguard: \n", ipcConf)
