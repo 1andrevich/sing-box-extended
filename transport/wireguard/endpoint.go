@@ -177,7 +177,7 @@ func (e *Endpoint) Start(resolve bool) error {
 			e.options.Logger.Error(fmt.Sprintf(strings.ToLower(format), args...))
 		},
 	}
-	wgDevice := device.NewDevice(e.options.Context, e.tunDevice, bind, logger, e.options.Workers)
+	wgDevice := device.NewDevice(e.options.Context, e.tunDevice, bind, logger, e.options.Workers, e.options.PreallocatedBuffersPerPool, e.options.DisablePauses)
 	e.tunDevice.SetDevice(wgDevice)
 	ipcConf := e.ipcConf
 	if e.options.Amnezia != nil {

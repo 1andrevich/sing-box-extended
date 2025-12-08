@@ -12,22 +12,24 @@ import (
 )
 
 type EndpointOptions struct {
-	Context      context.Context
-	Logger       logger.ContextLogger
-	System       bool
-	Handler      tun.Handler
-	UDPTimeout   time.Duration
-	Dialer       N.Dialer
-	CreateDialer func(interfaceName string) N.Dialer
-	Name         string
-	MTU          uint32
-	Address      []netip.Prefix
-	PrivateKey   string
-	ListenPort   uint16
-	ResolvePeer  func(domain string) (netip.Addr, error)
-	Peers        []PeerOptions
-	Workers      int
-	Amnezia      *AmneziaOptions
+	Context                    context.Context
+	Logger                     logger.ContextLogger
+	System                     bool
+	Handler                    tun.Handler
+	UDPTimeout                 time.Duration
+	Dialer                     N.Dialer
+	CreateDialer               func(interfaceName string) N.Dialer
+	Name                       string
+	MTU                        uint32
+	Address                    []netip.Prefix
+	PrivateKey                 string
+	ListenPort                 uint16
+	ResolvePeer                func(domain string) (netip.Addr, error)
+	Peers                      []PeerOptions
+	Workers                    int
+	PreallocatedBuffersPerPool uint32
+	DisablePauses              bool
+	Amnezia                    *AmneziaOptions
 }
 
 type PeerOptions struct {

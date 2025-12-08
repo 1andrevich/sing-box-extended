@@ -125,9 +125,11 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 			}
 			return endpointAddresses[0], nil
 		},
-		Peers:   peers,
-		Workers: options.Workers,
-		Amnezia: amnezia,
+		Peers:                      peers,
+		Workers:                    options.Workers,
+		PreallocatedBuffersPerPool: options.PreallocatedBuffersPerPool,
+		DisablePauses:              options.DisablePauses,
+		Amnezia:                    amnezia,
 	})
 	if err != nil {
 		return nil, err
