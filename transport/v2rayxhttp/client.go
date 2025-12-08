@@ -13,8 +13,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/quic-go/quic-go"
-	"github.com/quic-go/quic-go/http3"
+	"github.com/sagernet/quic-go"
+	"github.com/sagernet/quic-go/http3"
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/tls"
 	"github.com/sagernet/sing-box/common/xray/buf"
@@ -23,6 +23,7 @@ import (
 	"github.com/sagernet/sing-box/common/xray/signal/done"
 	"github.com/sagernet/sing-box/common/xray/uuid"
 	"github.com/sagernet/sing-box/option"
+	qtls "github.com/sagernet/sing-quic"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/bufio"
 	E "github.com/sagernet/sing/common/exceptions"
@@ -47,14 +48,6 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 		return nil, E.New("mode is not set")
 	}
 	dest := serverAddr
-	var gotlsConfig *gotls.Config
-	if tlsConfig != nil {
-		var err error
-		gotlsConfig, err = tlsConfig.Config()
-		if err != nil {
-			return nil, err
-		}
-	}
 	baseRequestURL, err := getBaseRequestURL(
 		&options.V2RayXHTTPBaseOptions, dest, tlsConfig,
 	)
@@ -71,7 +64,7 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 		xmuxOptions = *options.Xmux
 	}
 	xmuxManager := NewXmuxManager(xmuxOptions, func() XmuxConn {
-		return createHTTPClient(dest, dialer, &options.V2RayXHTTPBaseOptions, tlsConfig, gotlsConfig)
+		return createHTTPClient(dest, dialer, &options.V2RayXHTTPBaseOptions, tlsConfig)
 	})
 	getHTTPClient := func() (DialerClient, *XmuxClient) {
 		xmuxClient := xmuxManager.GetXmuxClient(ctx)
@@ -91,13 +84,8 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 		}
 		dest2 := options2.ServerOptions.Build()
 		var tlsConfig2 tls.Config
-		var gotlsConfig2 *gotls.Config
 		if options2.TLS != nil {
 			tlsConfig2, err = tls.NewClient(ctx, options2.Server, common.PtrValueOrDefault(options2.TLS))
-			if err != nil {
-				return nil, err
-			}
-			gotlsConfig2, err = tlsConfig2.Config()
 			if err != nil {
 				return nil, err
 			}
@@ -116,7 +104,7 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 			xmuxOptions2 = *options2.Xmux
 		}
 		xmuxManager2 := NewXmuxManager(xmuxOptions2, func() XmuxConn {
-			return createHTTPClient(dest2, dialer2, &options2.V2RayXHTTPBaseOptions, tlsConfig2, gotlsConfig2)
+			return createHTTPClient(dest2, dialer2, &options2.V2RayXHTTPBaseOptions, tlsConfig2)
 		})
 		getHTTPClient2 = func() (DialerClient, *XmuxClient) {
 			xmuxClient2 := xmuxManager2.GetXmuxClient(ctx)
@@ -262,11 +250,11 @@ func (c *Client) Close() error {
 	return nil
 }
 
-func decideHTTPVersion(gotlsConfig *gotls.Config) string {
-	if gotlsConfig == nil || len(gotlsConfig.NextProtos) == 0 || gotlsConfig.NextProtos[0] == "http/1.1" {
+func decideHTTPVersion(tlsConfig tls.Config) string {
+	if tlsConfig == nil || len(tlsConfig.NextProtos()) == 0 || tlsConfig.NextProtos()[0] == "http/1.1" {
 		return "1.1"
 	}
-	if gotlsConfig.NextProtos[0] == "h3" {
+	if tlsConfig.NextProtos()[0] == "h3" {
 		return "3"
 	}
 	return "2"
@@ -298,8 +286,8 @@ func getBaseRequestURL(options *option.V2RayXHTTPBaseOptions, dest M.Socksaddr, 
 	return requestURL, nil
 }
 
-func createHTTPClient(dest M.Socksaddr, dialer N.Dialer, options *option.V2RayXHTTPBaseOptions, tlsConfig tls.Config, gotlsConfig *gotls.Config) DialerClient {
-	httpVersion := decideHTTPVersion(gotlsConfig)
+func createHTTPClient(dest M.Socksaddr, dialer N.Dialer, options *option.V2RayXHTTPBaseOptions, tlsConfig tls.Config) DialerClient {
+	httpVersion := decideHTTPVersion(tlsConfig)
 	dialContext := func(ctxInner context.Context) (net.Conn, error) {
 		conn, err := dialer.DialContext(ctxInner, "tcp", dest)
 		if err != nil {
@@ -332,14 +320,13 @@ func createHTTPClient(dest M.Socksaddr, dialer N.Dialer, options *option.V2RayXH
 			KeepAlivePeriod:    keepAlivePeriod,
 		}
 		transport = &http3.Transport{
-			QUICConfig:      quicConfig,
-			TLSClientConfig: gotlsConfig.Clone(),
-			Dial: func(ctx context.Context, addr string, tlsCfg *gotls.Config, cfg *quic.Config) (*quic.Conn, error) {
+			QUICConfig: quicConfig,
+			Dial: func(ctx context.Context, addr string, tlsCfg *gotls.Config, cfg *quic.Config) (quic.EarlyConnection, error) {
 				udpConn, dErr := dialer.DialContext(ctx, N.NetworkUDP, dest)
 				if dErr != nil {
 					return nil, dErr
 				}
-				return quic.DialEarly(ctx, bufio.NewUnbindPacketConn(udpConn), udpConn.RemoteAddr(), tlsCfg, cfg)
+				return qtls.DialEarly(ctx, bufio.NewUnbindPacketConn(udpConn), udpConn.RemoteAddr(), tlsConfig, cfg)
 			},
 		}
 	case "2":

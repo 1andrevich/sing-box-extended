@@ -110,7 +110,6 @@ type V2RayHTTPUpgradeOptions struct {
 }
 
 type V2RayXHTTPBaseOptions struct {
-	Mode                 string                 `json:"mode"`
 	Host                 string                 `json:"host,omitempty"`
 	Path                 string                 `json:"path,omitempty"`
 	Headers              map[string]string      `json:"headers,omitempty"`
@@ -126,6 +125,7 @@ type V2RayXHTTPBaseOptions struct {
 }
 
 type V2RayXHTTPOptions struct {
+	Mode string `json:"mode"`
 	V2RayXHTTPBaseOptions
 	Download *V2RayXHTTPDownloadOptions `json:"download"`
 }
