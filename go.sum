@@ -195,8 +195,8 @@ github.com/shtorm-7/dnscrypt/v2 v2.4.0-extended-1.0.0 h1:e5s7RKBd2rIPR0StbvZ2vTV
 github.com/shtorm-7/dnscrypt/v2 v2.4.0-extended-1.0.0/go.mod h1:WpEFV2uhebXb8Jhes/5/fSdpmhGV8TL22RDaeWwV6hI=
 github.com/shtorm-7/tailscale v1.80.3-sing-box-1.12-mod.2-extended-1.0.0 h1:Yp4dIRwiwLda9JXyGMHkfYRr2r01NarkzsNd/oi10dk=
 github.com/shtorm-7/tailscale v1.80.3-sing-box-1.12-mod.2-extended-1.0.0/go.mod h1:+znUAXWwgcgza5mb5do8j9RC95rpY9lbSc/TyEyCGa4=
-github.com/shtorm-7/wireguard-go v0.0.1-beta.7-extended-1.1.0 h1:bTmx3NiEeH7mdgsifyNUxIEAA0wokRMSm8iS/hln6n0=
-github.com/shtorm-7/wireguard-go v0.0.1-beta.7-extended-1.1.0/go.mod h1:DHxMTUaBGHP3tf8nJ/N8AkcoJDD0PHECLhTfLsw+ylQ=
+github.com/shtorm-7/wireguard-go v0.0.1-beta.7-extended-1.2.0 h1:o/AAMCZPDCrwat2m0rAicFJ+iHfuzBR4nNueORUiEtM=
+github.com/shtorm-7/wireguard-go v0.0.1-beta.7-extended-1.2.0/go.mod h1:3Ps4sTih9KeKik6xsMdIa+2TWDgTb+ysnq+ztxespk8=
 github.com/spf13/cobra v1.9.1 h1:CXSaggrXdbHK9CF+8ywj8Amf7PBRmPCOJugH954Nnlo=
 github.com/spf13/cobra v1.9.1/go.mod h1:nDyEzZ8ogv936Cinf6g1RU9MRY64Ir93oCnqb9wxYW0=
 github.com/spf13/pflag v1.0.6 h1:jFzHGLGAlb3ruxLB8MhbI6A8+AQX/2eW4qeyNZXNp2o=
