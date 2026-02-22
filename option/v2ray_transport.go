@@ -198,7 +198,7 @@ func checkV2RayXHTTPBaseOptions(mode string, options *V2RayXHTTPBaseOptions) err
 		}
 	}
 	if options.XPaddingBytes.From <= 0 || options.XPaddingBytes.To <= 0 {
-		return E.New("xPaddingBytes cannot be disabled")
+		return E.New("x_padding_bytes cannot be disabled")
 	}
 	if options.XPaddingKey == "" {
 		options.XPaddingKey = "x_padding"
@@ -226,7 +226,7 @@ func checkV2RayXHTTPBaseOptions(mode string, options *V2RayXHTTPBaseOptions) err
 	case "body":
 	case "cookie", "header":
 		if mode != "packet-up" {
-			return E.New("UplinkDataPlacement can be " + options.UplinkDataPlacement + " only in packet-up mode")
+			return E.New("uplink_data_placement can be " + options.UplinkDataPlacement + " only in packet-up mode")
 		}
 	default:
 		return E.New("unsupported uplink data placement: " + options.UplinkDataPlacement)
@@ -236,7 +236,7 @@ func checkV2RayXHTTPBaseOptions(mode string, options *V2RayXHTTPBaseOptions) err
 	}
 	options.UplinkHTTPMethod = strings.ToUpper(options.UplinkHTTPMethod)
 	if options.UplinkHTTPMethod == "GET" && mode != "packet-up" {
-		return E.New("uplinkHTTPMethod can be GET only in packet-up mode")
+		return E.New("uplink_http_method can be GET only in packet-up mode")
 	}
 	switch options.SessionPlacement {
 	case "":
@@ -251,7 +251,7 @@ func checkV2RayXHTTPBaseOptions(mode string, options *V2RayXHTTPBaseOptions) err
 	case "path":
 	case "cookie", "header", "query":
 		if options.SessionPlacement == "path" {
-			return E.New("SeqPlacement must be path when SessionPlacement is path")
+			return E.New("seq_placement must be path when session_placement is path")
 		}
 	default:
 		return E.New("unsupported seq placement: " + options.SeqPlacement)
@@ -299,7 +299,7 @@ func checkV2RayXHTTPBaseOptions(mode string, options *V2RayXHTTPBaseOptions) err
 		options.Xmux.HMaxReusableSecs.From = 1800
 		options.Xmux.HMaxReusableSecs.To = 3000
 	} else if options.Xmux.MaxConnections.To > 0 && options.Xmux.MaxConcurrency.To > 0 {
-		return E.New("maxConnections cannot be specified together with maxConcurrency")
+		return E.New("max_connections cannot be specified together with max_concurrency")
 	}
 	return nil
 }
