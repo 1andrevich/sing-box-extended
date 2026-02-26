@@ -2,22 +2,44 @@
 
 Sing-box with extended features.
 
-## Features
+## 🔥 Features
 
-* Amnezia 1.5
-* WARP
-* Tunneling
-* Mieru
-* XHTTP
-* SDNS (DNSCrypt)
-* Extended Wireguard options
-* Unified delay
+### 🌐 Outbounds
+- **WARP** — Cloudflare WARP integration through WireGuard
+- **Tunnel** — Protocol for creating tunnels across nodes
+- **Bond** — Link aggregation for increased throughput
+- **Mieru** — Secure, hard to classify, hard to probe network protocol
+- **Failover** — Automatic outbound switching for high availability
 
-## Examples
+### 🚦 Limiters
+- **Bandwidth Limiter** — Upload / download rate limiting
+- **Connection Limiter** — Concurrent connection control
+
+### 🛡 Encryption & Obfuscation
+- **Amnezia 1.5** — WireGuard traffic obfuscation
+- **VLESS encryption** — XRAY encryption for VLESS protocol
+
+### 🔄 Transports
+- **mKCP** — Reliable UDP-based transport
+- **XHTTP** — Modern XRAY transport
+
+### 🛠 Services
+- **Admin Panel** — Web-based management interface
+- **Manager** — Management service for configuring squads, nodes, users, limiters
+- **Node Manager** — Service for connecting nodes to remote manager
+
+### ⚙ Miscellaneous
+- **SDNS (DNSCrypt)** — Encrypted DNS queries for enhanced privacy
+- **Extended WireGuard options** — Advanced configuration capabilities  
+- **Unified Delay** — Unified latency measurement
+
+## 📚 Examples
+
+Configuration examples are available here:
 
 https://github.com/shtorm-7/sing-box-extended/tree/extended/examples
 
-## Support the project
+## Support the Project
 
 If you want to support the project, you can donate to the following addresses.
 
@@ -42,7 +64,7 @@ bc1qqx97p8k4dchqkyd47s4vf74hrqdfnmhqvcja7x
 0xAcc5919C22F2B3fAa0ec7E8BaD142da5B375FBF6
 ```
 
-## License
+## 📄 License
 
 ```
 Copyright (C) 2022 by nekohasekai <contact-sagernet@sekai.icu>
