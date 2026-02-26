@@ -15,6 +15,7 @@ require (
 	github.com/godbus/dbus/v5 v5.1.1-0.20230522191255-76236955d466
 	github.com/gofrs/uuid/v5 v5.3.2
 	github.com/insomniacslk/dhcp v0.0.0-20250417080101-5f8cf70e8c5f
+	github.com/klauspost/cpuid/v2 v2.2.10
 	github.com/libdns/alidns v1.0.5-libdns.v1.beta1
 	github.com/libdns/cloudflare v0.2.2-0.20250708034226-c574dccb31a6
 	github.com/logrusorgru/aurora v2.0.3+incompatible
@@ -57,6 +58,7 @@ require (
 	google.golang.org/grpc v1.73.0
 	google.golang.org/protobuf v1.36.6
 	howett.net/plist v1.0.1
+	lukechampine.com/blake3 v1.4.1
 )
 
 require (
@@ -107,7 +109,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jsimonetti/rtnetlink v1.4.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
-	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/kortschak/wol v0.0.0-20200729010619-da482cc4850a // indirect
 	github.com/libdns/libdns v1.1.0 // indirect
 	github.com/mdlayher/genetlink v1.3.2 // indirect
@@ -145,7 +146,6 @@ require (
 	golang.zx2c4.com/wireguard/windows v0.5.3 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250324211829-b45e905df463 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	lukechampine.com/blake3 v1.4.1 // indirect
 )
 
 replace github.com/sagernet/wireguard-go => github.com/shtorm-7/wireguard-go v0.0.1-beta.7-extended-1.2.0
@@ -155,3 +155,5 @@ replace github.com/sagernet/tailscale => github.com/shtorm-7/tailscale v1.80.3-s
 replace github.com/sagernet/sing-dns => github.com/shtorm-7/sing-dns v0.4.6-extended-1.0.0
 
 replace github.com/ameshkov/dnscrypt/v2 => github.com/shtorm-7/dnscrypt/v2 v2.4.0-extended-1.0.0
+
+replace github.com/sagernet/sing-vmess => github.com/starifly/sing-vmess v0.2.7-mod.9
