@@ -23,7 +23,7 @@
         }
       ],
       "transport": {
-        "type": "kcp",
+        "type": "mkcp",
         "mtu": 1500
       }
     }

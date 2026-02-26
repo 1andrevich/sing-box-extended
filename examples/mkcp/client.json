@@ -30,7 +30,7 @@
       "uuid": "9b65b7e1-04c8-4717-8f45-2aa61fd25937",
       "packet_encoding": "",
       "transport": {
-        "type": "kcp",
+        "type": "mkcp",
         "mtu": 1500
       }
     }
