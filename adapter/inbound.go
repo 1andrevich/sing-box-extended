@@ -31,6 +31,7 @@ type UDPInjectableInbound interface {
 type InboundRegistry interface {
 	option.InboundOptionsRegistry
 	Create(ctx context.Context, router Router, logger log.ContextLogger, tag string, inboundType string, options any) (Inbound, error)
+	UnsafeCreate(ctx context.Context, router Router, logger log.ContextLogger, tag string, inboundType string, options any) (Inbound, error)
 }
 
 type InboundManager interface {

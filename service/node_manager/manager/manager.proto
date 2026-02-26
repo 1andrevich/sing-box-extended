@@ -1,0 +1,104 @@
+syntax = "proto3";
+
+option go_package = "github.com/sagernet/sing-box/service/remotemanager/manager";
+
+package manager.v1;
+
+service Manager {
+  rpc AddNode (Node) returns (stream NodeData);
+  rpc AcquireLock(AcquireLockRequest) returns (LockData);
+  rpc RefreshLock(LockData) returns (Empty);
+  rpc ReleaseLock(LockData) returns (Empty);
+}
+
+message Node {
+  string uuid = 1;
+}
+
+enum OpType {
+  updateUsers = 0;
+  updateUser  = 1;
+  deleteUser  = 2;
+
+  updateBandwidthLimiters = 3;
+  updateBandwidthLimiter  = 4;
+  deleteBandwidthLimiter  = 5;
+
+  updateConnectionLimiters = 6;
+  updateConnectionLimiter  = 7;
+  deleteConnectionLimiter  = 8;
+}
+
+message User {
+  int32  id = 1;
+  string username = 3;
+  string type = 4;
+  string inbound = 5;
+  string uuid = 6;
+  string password = 7;
+  string flow = 8;
+  int32  alter_id = 9;
+}
+
+message UserList {
+  repeated User values = 1;
+}
+
+message BandwidthLimiter {
+  int32  id = 1;
+  string username = 3;
+  string outbound = 4;
+  string strategy = 5;
+  string mode = 6;
+  string connection_type = 7;
+  string speed = 8;
+  uint64 raw_speed = 9;
+}
+
+message BandwidthLimiterList {
+  repeated BandwidthLimiter values = 1;
+}
+
+message ConnectionLimiter {
+  int32  id = 1;
+  string username = 3;
+  string outbound = 4;
+  string strategy = 5;
+  string connection_type = 6;
+  string lock_type = 7;
+  uint32 count = 8;
+}
+
+message ConnectionLimiterList {
+  repeated ConnectionLimiter values = 1;
+}
+
+message NodeData {
+
+  OpType op = 1;
+
+  oneof data {
+    UserList users = 2;
+    User user = 3;
+    BandwidthLimiterList bandwidth_limiters = 4;
+    BandwidthLimiter bandwidth_limiter = 5;
+    ConnectionLimiterList connection_limiters = 6;
+    ConnectionLimiter connection_limiter = 7;
+  }
+
+}
+
+message AcquireLockRequest {
+  int32 limiter_id = 1;
+  string id = 2;
+}
+
+message LockData {
+  int32 limiter_id = 1;
+  string id = 2;
+  string handleId = 3;
+}
+
+message Empty {
+
+}

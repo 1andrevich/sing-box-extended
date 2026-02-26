@@ -20,6 +20,7 @@ import (
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
+	"github.com/sagernet/sing-box/transport/v2rayhttp"
 	qtls "github.com/sagernet/sing-quic"
 
 	// qtls "github.com/sagernet/sing-quic"
@@ -265,7 +266,7 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		if sessionId != "" { // if not stream-one
 			conn.reader = currentSession.uploadQueue
 		}
-		s.handler.NewConnectionEx(request.Context(), &conn, sHttp.SourceAddress(request), M.Socksaddr{}, func(it error) {})
+		s.handler.NewConnectionEx(v2rayhttp.HWIDContext(request.Context(), request.Header), &conn, sHttp.SourceAddress(request), M.Socksaddr{}, func(it error) {})
 		// "A ResponseWriter may not be used after [Handler.ServeHTTP] has returned."
 		select {
 		case <-request.Context().Done():

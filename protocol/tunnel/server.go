@@ -3,14 +3,13 @@ package tunnel
 import (
 	"context"
 	"net"
-	"os"
-	"sync"
 	"time"
 
 	"github.com/gofrs/uuid/v5"
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/adapter/endpoint"
 	"github.com/sagernet/sing-box/adapter/outbound"
+	sbUot "github.com/sagernet/sing-box/common/uot"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
@@ -19,6 +18,7 @@ import (
 	"github.com/sagernet/sing/common/logger"
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
+	"github.com/sagernet/sing/common/uot"
 	"github.com/sagernet/sing/service"
 )
 
@@ -28,16 +28,15 @@ func RegisterServerEndpoint(registry *endpoint.Registry) {
 
 type ServerEndpoint struct {
 	outbound.Adapter
-	logger  logger.ContextLogger
-	inbound adapter.Inbound
-	router  adapter.Router
-	uuid    uuid.UUID
-	users   map[uuid.UUID]uuid.UUID
-	keys    map[uuid.UUID]uuid.UUID
-	conns   map[uuid.UUID]chan net.Conn
-	timeout time.Duration
-
-	mtx sync.Mutex
+	logger    logger.ContextLogger
+	inbound   adapter.Inbound
+	router    adapter.ConnectionRouterEx
+	uuid      uuid.UUID
+	users     map[uuid.UUID]uuid.UUID
+	keys      map[uuid.UUID]uuid.UUID
+	conns     map[uuid.UUID]chan net.Conn
+	timeout   time.Duration
+	uotClient *uot.Client
 }
 
 func NewServerEndpoint(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.TunnelServerEndpointOptions) (adapter.Endpoint, error) {
@@ -46,9 +45,9 @@ func NewServerEndpoint(ctx context.Context, router adapter.Router, logger log.Co
 		return nil, err
 	}
 	server := &ServerEndpoint{
-		Adapter: outbound.NewAdapter(C.TypeTunnelServer, tag, []string{N.NetworkTCP}, []string{}),
+		Adapter: outbound.NewAdapter(C.TypeTunnelServer, tag, []string{N.NetworkTCP, N.NetworkUDP}, []string{}),
 		logger:  logger,
-		router:  router,
+		router:  sbUot.NewRouter(router, logger),
 		uuid:    serverUUID,
 	}
 	inboundRegistry := service.FromContext[adapter.InboundRegistry](ctx)
@@ -78,6 +77,10 @@ func NewServerEndpoint(ctx context.Context, router adapter.Router, logger log.Co
 	} else {
 		server.timeout = C.TCPConnectTimeout
 	}
+	server.uotClient = &uot.Client{
+		Dialer:  server,
+		Version: uot.Version,
+	}
 	return server, nil
 }
 
@@ -86,8 +89,8 @@ func (s *ServerEndpoint) Start(stage adapter.StartStage) error {
 }
 
 func (s *ServerEndpoint) DialContext(ctx context.Context, network string, destination M.Socksaddr) (net.Conn, error) {
-	if network != N.NetworkTCP {
-		return nil, os.ErrInvalid
+	if N.NetworkName(network) == N.NetworkUDP {
+		return s.uotClient.DialContext(ctx, network, destination)
 	}
 	var sourceUUID *uuid.UUID
 	var ch chan net.Conn
@@ -97,13 +100,11 @@ func (s *ServerEndpoint) DialContext(ctx context.Context, network string, destin
 			if err != nil {
 				return nil, err
 			}
-			s.mtx.Lock()
 			var ok bool
 			ch, ok = s.conns[tunnelDestination]
 			if !ok {
 				return nil, E.New("user ", metadata.TunnelDestination, " not found")
 			}
-			s.mtx.Unlock()
 		}
 		if metadata.TunnelSource != "" {
 			tunnelSource, err := uuid.FromString(metadata.TunnelSource)
@@ -131,6 +132,7 @@ func (s *ServerEndpoint) DialContext(ctx context.Context, network string, destin
 		case conn := <-ch:
 			err := WriteRequest(conn, &Request{UUID: *sourceUUID, Command: CommandTCP, Destination: destination})
 			if err != nil {
+				conn.Close()
 				s.logger.ErrorContext(ctx, err)
 				continue
 			}
@@ -142,7 +144,7 @@ func (s *ServerEndpoint) DialContext(ctx context.Context, network string, destin
 }
 
 func (s *ServerEndpoint) ListenPacket(ctx context.Context, destination M.Socksaddr) (net.PacketConn, error) {
-	return nil, os.ErrInvalid
+	return s.uotClient.ListenPacket(ctx, destination)
 }
 
 func (s *ServerEndpoint) Close() error {
@@ -159,8 +161,6 @@ func (s *ServerEndpoint) connHandler(ctx context.Context, conn net.Conn, metadat
 		return err
 	}
 	if request.Command == CommandInbound {
-		s.mtx.Lock()
-		defer s.mtx.Unlock()
 		uuid, ok := s.users[request.UUID]
 		if !ok {
 			return E.New("key ", request.UUID.String(), " not found")
@@ -183,14 +183,12 @@ func (s *ServerEndpoint) connHandler(ctx context.Context, conn net.Conn, metadat
 		if sourceUUID == request.DestinationUUID {
 			return E.New("routing loop on ", sourceUUID)
 		}
-		s.mtx.Lock()
 		if request.DestinationUUID != s.uuid {
 			_, ok = s.keys[request.DestinationUUID]
 			if !ok {
-				return E.New("user ", sourceUUID, " not found")
+				return E.New("user ", request.DestinationUUID, " not found")
 			}
 		}
-		s.mtx.Unlock()
 		metadata.Inbound = s.Tag()
 		metadata.InboundType = C.TypeTunnelServer
 		metadata.Destination = request.Destination
