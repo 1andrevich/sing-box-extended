@@ -35,6 +35,7 @@
         "path": "/xhttp",
         "x_padding_bytes": "100-1000",
         "no_sse_header": false, // server only
+        "sc_max_each_post_bytes": 1000000, // packet-up only
         "sc_max_buffered_posts": 30, // packet-up, server only
         "sc_stream_up_server_secs": "20-80", // stream-up, server only
         "x_padding_obfs_mode": false,
