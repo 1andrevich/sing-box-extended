@@ -1,6 +1,6 @@
 {
   "log": {
-    "level": "error"
+    "level": "info"
   },
   "dns": {
     "servers": [
@@ -12,7 +12,7 @@
   },
   "endpoints": [
     {
-      "type": "tunnel_client",
+      "type": "tunnel-client",
       "tag": "tunnel",
       "uuid": "9b65b7e1-04c8-4717-8f45-2aa61fd25937",
       "key": "1c9b2ccf-b0c0-4c26-868d-a55a4edad3fe",
@@ -30,7 +30,7 @@
     {
       "type": "mixed",
       "tag": "mixed-in",
-      "listen_port": 7897
+      "listen_port": 10000
     }
   ],
   "outbounds": [
@@ -41,16 +41,22 @@
     {
       "type": "dns",
       "tag": "dns-out"
+    },
+    {
+      "type": "failover",
+      "tag": "f",
+      "outbounds": ["tunnel", "direct-out"],
+      "interrupt_exist_connections": false,
     }
   ],
   "route": {
     "rules": [
       {
-        "outbound": "tunnel",
+        "outbound": "f",
         "override_tunnel_destination": "f79f7678-55e7-432d-a15f-6e8ab2b7fe13"
       }
     ],
-    "final": "direct-out",
+    "final": "f",
     "default_domain_resolver": "default",
     "auto_detect_interface": true
   }

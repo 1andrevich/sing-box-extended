@@ -12,7 +12,7 @@
   },
   "endpoints": [
     {
-      "type": "tunnel_client",
+      "type": "tunnel-client",
       "tag": "tunnel",
       "uuid": "487f6073-3300-4819-a07d-39652e45fb4d",
       "key": "3d74d616-2502-4c17-9cc3-92c366550f4f",

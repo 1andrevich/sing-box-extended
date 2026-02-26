@@ -1,6 +1,6 @@
 {
   "log": {
-    "level": "error"
+    "level": "info"
   },
   "dns": {
     "servers": [
@@ -12,7 +12,7 @@
   },
   "endpoints": [
     {
-      "type": "tunnel_server",
+      "type": "tunnel-server",
       "tag": "tunnel",
       "uuid": "f79f7678-55e7-432d-a15f-6e8ab2b7fe13",
       "users": [

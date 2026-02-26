@@ -138,6 +138,17 @@ func (h *Inbound) Close() error {
 	)
 }
 
+func (h *Inbound) UpdateUsers(users []option.VLESSUser) {
+	h.users = users
+	h.service.UpdateUsers(common.MapIndexed(users, func(index int, _ option.VLESSUser) int {
+		return index
+	}), common.Map(users, func(it option.VLESSUser) string {
+		return it.UUID
+	}), common.Map(users, func(it option.VLESSUser) string {
+		return it.Flow
+	}))
+}
+
 func (h *Inbound) NewConnectionEx(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
 	if h.tlsConfig != nil && h.transport == nil {
 		tlsConn, err := tls.ServerHandshake(ctx, conn, h.tlsConfig)

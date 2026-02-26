@@ -19,10 +19,13 @@ import (
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing-box/protocol/anytls"
 	"github.com/sagernet/sing-box/protocol/block"
+	"github.com/sagernet/sing-box/protocol/bond"
 	"github.com/sagernet/sing-box/protocol/direct"
 	protocolDNS "github.com/sagernet/sing-box/protocol/dns"
 	"github.com/sagernet/sing-box/protocol/group"
 	"github.com/sagernet/sing-box/protocol/http"
+	"github.com/sagernet/sing-box/protocol/limiter/bandwidth"
+	"github.com/sagernet/sing-box/protocol/limiter/connection"
 	"github.com/sagernet/sing-box/protocol/mieru"
 	"github.com/sagernet/sing-box/protocol/mixed"
 	"github.com/sagernet/sing-box/protocol/naive"
@@ -37,6 +40,11 @@ import (
 	"github.com/sagernet/sing-box/protocol/tunnel"
 	"github.com/sagernet/sing-box/protocol/vless"
 	"github.com/sagernet/sing-box/protocol/vmess"
+	"github.com/sagernet/sing-box/service/admin_panel"
+	"github.com/sagernet/sing-box/service/manager"
+	"github.com/sagernet/sing-box/service/node"
+	nodeManagerClient "github.com/sagernet/sing-box/service/node_manager/client"
+	nodeManagerServer "github.com/sagernet/sing-box/service/node_manager/server"
 	"github.com/sagernet/sing-box/service/resolved"
 	"github.com/sagernet/sing-box/service/ssmapi"
 	E "github.com/sagernet/sing/common/exceptions"
@@ -66,6 +74,8 @@ func InboundRegistry() *inbound.Registry {
 	vless.RegisterInbound(registry)
 	anytls.RegisterInbound(registry)
 
+	bond.RegisterInbound(registry)
+
 	registerQUICInbounds(registry)
 	registerStubForRemovedInbounds(registry)
 
@@ -80,6 +90,7 @@ func OutboundRegistry() *outbound.Registry {
 	block.RegisterOutbound(registry)
 	protocolDNS.RegisterOutbound(registry)
 
+	group.RegisterFailover(registry)
 	group.RegisterSelector(registry)
 	group.RegisterURLTest(registry)
 
@@ -94,6 +105,11 @@ func OutboundRegistry() *outbound.Registry {
 	vless.RegisterOutbound(registry)
 	mieru.RegisterOutbound(registry)
 	anytls.RegisterOutbound(registry)
+
+	bond.RegisterOutbound(registry)
+
+	bandwidth.RegisterOutbound(registry)
+	connection.RegisterOutbound(registry)
 
 	registerQUICOutbounds(registry)
 	registerWireGuardOutbound(registry)
@@ -137,6 +153,11 @@ func DNSTransportRegistry() *dns.TransportRegistry {
 func ServiceRegistry() *service.Registry {
 	registry := service.NewRegistry()
 
+	admin_panel.RegisterService(registry)
+	manager.RegisterService(registry)
+	node.RegisterService(registry)
+	nodeManagerClient.RegisterService(registry)
+	nodeManagerServer.RegisterService(registry)
 	resolved.RegisterService(registry)
 	ssmapi.RegisterService(registry)
 
