@@ -170,12 +170,10 @@ require (
 	github.com/tailscale/netlink v1.1.1-0.20240822203006-4d49adab4de7 // indirect
 	github.com/tailscale/peercred v0.0.0-20250107143737-35a0c7bd7edc // indirect
 	github.com/tailscale/web-client-prebuilt v0.0.0-20250124233751-d4cd19a26976 // indirect
-	github.com/tevino/abool v1.2.0 // indirect
 	github.com/u-root/uio v0.0.0-20240224005618-d2acac8f3701 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/zeebo/blake3 v0.2.4 // indirect
-	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap/exp v0.3.0 // indirect
 	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
@@ -192,7 +190,7 @@ require (
 	xorm.io/xorm v1.0.2 // indirect
 )
 
-replace github.com/sagernet/wireguard-go => github.com/shtorm-7/wireguard-go v0.0.1-beta.7-extended-1.2.0
+replace github.com/sagernet/wireguard-go => github.com/shtorm-7/wireguard-go v0.0.1-beta.7-extended-1.3.0
 
 replace github.com/sagernet/tailscale => github.com/shtorm-7/tailscale v1.80.3-sing-box-1.12-mod.2-extended-1.0.0
 
