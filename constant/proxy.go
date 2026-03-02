@@ -97,18 +97,22 @@ func ProxyDisplayName(proxyType string) string {
 		return "TUIC"
 	case TypeHysteria2:
 		return "Hysteria2"
+	case TypeBond:
+		return "Bond"
 	case TypeMieru:
 		return "Mieru"
 	case TypeAnyTLS:
 		return "AnyTLS"
+	case TypeFailover:
+		return "Failover"
 	case TypeSelector:
 		return "Selector"
 	case TypeURLTest:
 		return "URLTest"
 	case TypeTunnelClient:
-		return "Tunnel Client"
+		return "Tunnel client"
 	case TypeTunnelServer:
-		return "Tunnel Server"
+		return "Tunnel server"
 	default:
 		return "Unknown"
 	}

@@ -39,7 +39,7 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 		return nil, E.New("missing tags")
 	}
 	inbound := &Inbound{
-		Adapter: inbound.NewAdapter(C.TypeTunnelServer, tag),
+		Adapter: inbound.NewAdapter(C.TypeBond, tag),
 		logger:  logger,
 		router:  uot.NewRouter(router, logger),
 		conns:   cache.New(C.TCPConnectTimeout, time.Second),

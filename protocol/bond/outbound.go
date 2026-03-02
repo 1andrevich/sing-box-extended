@@ -62,7 +62,7 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 		return nil, E.New("invalid ratios")
 	}
 	outbound := &Outbound{
-		Adapter:        outbound.NewAdapter(C.TypeTunnelClient, tag, []string{N.NetworkTCP, N.NetworkUDP}, []string{}),
+		Adapter:        outbound.NewAdapter(C.TypeBond, tag, []string{N.NetworkTCP, N.NetworkUDP}, []string{}),
 		ctx:            ctx,
 		outbounds:      outbounds,
 		downloadRatios: downloadRatios,
