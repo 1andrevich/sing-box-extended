@@ -92,6 +92,10 @@ func (h *Inbound) Close() error {
 }
 
 func (h *Inbound) connHandler(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) error {
+	if metadata.Destination != Destination {
+		h.router.RouteConnectionEx(ctx, conn, metadata, onClose)
+		return nil
+	}
 	request, err := ReadRequest(conn)
 	if err != nil {
 		return err
