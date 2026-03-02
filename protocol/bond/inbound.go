@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/patrickmn/go-cache"
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/adapter/inbound"
+	"github.com/sagernet/sing-box/common/kmutex"
 	"github.com/sagernet/sing-box/common/uot"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/log"
@@ -31,7 +31,7 @@ type Inbound struct {
 	inbounds []adapter.Inbound
 	conns    *cache.Cache
 
-	mtx sync.Mutex
+	mtx *kmutex.Kmutex[string]
 }
 
 func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.BondInboundOptions) (adapter.Inbound, error) {
@@ -43,6 +43,7 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 		logger:  logger,
 		router:  uot.NewRouter(router, logger),
 		conns:   cache.New(C.TCPConnectTimeout, time.Second),
+		mtx:     kmutex.New[string](),
 	}
 	inboundRegistry := service.FromContext[adapter.InboundRegistry](ctx)
 	inbounds := make([]adapter.Inbound, len(options.Inbounds))
@@ -55,8 +56,8 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 	}
 	inbound.inbounds = inbounds
 	inbound.conns.OnEvicted(func(s string, i interface{}) {
-		inbound.mtx.Lock()
-		defer inbound.mtx.Unlock()
+		inbound.mtx.Lock(s)
+		defer inbound.mtx.Unlock(s)
 		ratioConns := i.(map[uint8]*ratioConn)
 		for _, ratioConn := range ratioConns {
 			if ratioConn != nil {
@@ -100,15 +101,15 @@ func (h *Inbound) connHandler(ctx context.Context, conn net.Conn, metadata adapt
 	if err != nil {
 		return err
 	}
-	h.mtx.Lock()
-	defer h.mtx.Unlock()
+	requestUUID := request.UUID.String()
+	h.mtx.Lock(requestUUID)
 	var ratioConns map[uint8]*ratioConn
-	rawRatioConns, ok := h.conns.Get(request.UUID.String())
+	rawRatioConns, ok := h.conns.Get(requestUUID)
 	if ok {
 		ratioConns = rawRatioConns.(map[uint8]*ratioConn)
 	} else {
 		ratioConns = make(map[uint8]*ratioConn, request.Count)
-		h.conns.SetDefault(request.UUID.String(), ratioConns)
+		h.conns.SetDefault(requestUUID, ratioConns)
 	}
 	ratioConns[request.Index] = &ratioConn{
 		conn:          conn,
@@ -132,14 +133,18 @@ func (h *Inbound) connHandler(ctx context.Context, conn net.Conn, metadata adapt
 			for _, conn := range conns {
 				conn.Close()
 			}
+			h.mtx.Unlock(requestUUID)
 			return E.New("invalid ratios")
 		}
 		conn = NewBondedConn(conns, downloadRatios, uploadRatios)
 		metadata.Inbound = h.Tag()
 		metadata.InboundType = C.TypeBond
 		metadata.Destination = request.Destination
+		h.mtx.Unlock(requestUUID)
 		h.router.RouteConnectionEx(ctx, conn, metadata, onClose)
+		return nil
 	}
+	h.mtx.Unlock(requestUUID)
 	return nil
 }
 
