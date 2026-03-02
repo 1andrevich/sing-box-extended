@@ -5,6 +5,7 @@ import (
 	"net/netip"
 	"time"
 
+	Xbadoption "github.com/sagernet/sing-box/common/xray/json/badoption"
 	tun "github.com/sagernet/sing-tun"
 	"github.com/sagernet/sing/common/logger"
 	M "github.com/sagernet/sing/common/metadata"
@@ -49,10 +50,10 @@ type AmneziaOptions struct {
 	S2    int
 	S3    int
 	S4    int
-	H1    uint32
-	H2    uint32
-	H3    uint32
-	H4    uint32
+	H1    *Xbadoption.Range
+	H2    *Xbadoption.Range
+	H3    *Xbadoption.Range
+	H4    *Xbadoption.Range
 	I1    string
 	I2    string
 	I3    string

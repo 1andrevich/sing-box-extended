@@ -202,17 +202,17 @@ func (e *Endpoint) Start(resolve bool) error {
 		if e.options.Amnezia.S4 > 0 {
 			ipcConf += "\ns4=" + strconv.Itoa(e.options.Amnezia.S4)
 		}
-		if e.options.Amnezia.H1 > 0 {
-			ipcConf += "\nh1=" + strconv.FormatUint(uint64(e.options.Amnezia.H1), 10)
+		if e.options.Amnezia.H1 != nil {
+			ipcConf += "\nh1=" + e.options.Amnezia.H1.String()
 		}
-		if e.options.Amnezia.H2 > 0 {
-			ipcConf += "\nh2=" + strconv.FormatUint(uint64(e.options.Amnezia.H2), 10)
+		if e.options.Amnezia.H2 != nil {
+			ipcConf += "\nh2=" + e.options.Amnezia.H2.String()
 		}
-		if e.options.Amnezia.H3 > 0 {
-			ipcConf += "\nh3=" + strconv.FormatUint(uint64(e.options.Amnezia.H3), 10)
+		if e.options.Amnezia.H3 != nil {
+			ipcConf += "\nh3=" + e.options.Amnezia.H3.String()
 		}
-		if e.options.Amnezia.H4 > 0 {
-			ipcConf += "\nh4=" + strconv.FormatUint(uint64(e.options.Amnezia.H4), 10)
+		if e.options.Amnezia.H4 != nil {
+			ipcConf += "\nh4=" + e.options.Amnezia.H4.String()
 		}
 		if e.options.Amnezia.I1 != "" {
 			ipcConf += "\ni1=" + e.options.Amnezia.I1
