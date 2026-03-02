@@ -100,6 +100,9 @@ func (s *Failover) ListenPacket(ctx context.Context, destination M.Socksaddr) (n
 			s.logger.ErrorContext(ctx, err)
 			continue
 		}
+		s.mtx.Lock()
+		defer s.mtx.Unlock()
+		s.lastUsedOutbound = outbound.Tag()
 		return conn, nil
 	}
 	return nil, err
