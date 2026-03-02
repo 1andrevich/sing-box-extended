@@ -3,6 +3,7 @@ package group
 import (
 	"context"
 	"net"
+	"sync"
 
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/adapter/outbound"
@@ -26,11 +27,14 @@ var (
 
 type Failover struct {
 	outbound.Adapter
-	ctx       context.Context
-	outbound  adapter.OutboundManager
-	logger    logger.ContextLogger
-	tags      []string
-	outbounds map[string]adapter.Outbound
+	ctx              context.Context
+	outbound         adapter.OutboundManager
+	logger           logger.ContextLogger
+	tags             []string
+	outbounds        map[string]adapter.Outbound
+	lastUsedOutbound string
+
+	mtx sync.Mutex
 }
 
 func NewFailover(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.FailoverOutboundOptions) (adapter.Outbound, error) {
@@ -38,12 +42,13 @@ func NewFailover(ctx context.Context, router adapter.Router, logger log.ContextL
 		return nil, E.New("missing tags")
 	}
 	outbound := &Failover{
-		Adapter:   outbound.NewAdapter(C.TypeFailover, tag, []string{N.NetworkTCP, N.NetworkUDP}, options.Outbounds),
-		ctx:       ctx,
-		outbound:  service.FromContext[adapter.OutboundManager](ctx),
-		logger:    logger,
-		tags:      options.Outbounds,
-		outbounds: make(map[string]adapter.Outbound, len(options.Outbounds)),
+		Adapter:          outbound.NewAdapter(C.TypeFailover, tag, []string{N.NetworkTCP, N.NetworkUDP}, options.Outbounds),
+		ctx:              ctx,
+		outbound:         service.FromContext[adapter.OutboundManager](ctx),
+		logger:           logger,
+		tags:             options.Outbounds,
+		outbounds:        make(map[string]adapter.Outbound, len(options.Outbounds)),
+		lastUsedOutbound: options.Outbounds[0],
 	}
 	return outbound, nil
 }
@@ -60,7 +65,9 @@ func (s *Failover) Start() error {
 }
 
 func (s *Failover) Now() string {
-	return s.tags[0]
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	return s.lastUsedOutbound
 }
 
 func (s *Failover) All() []string {
@@ -76,6 +83,9 @@ func (s *Failover) DialContext(ctx context.Context, network string, destination 
 			s.logger.ErrorContext(ctx, err)
 			continue
 		}
+		s.mtx.Lock()
+		defer s.mtx.Unlock()
+		s.lastUsedOutbound = outbound.Tag()
 		return conn, nil
 	}
 	return nil, err
