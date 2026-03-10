@@ -22,6 +22,7 @@ import (
 	"github.com/sagernet/sing-box/common/xray/pipe"
 	"github.com/sagernet/sing-box/common/xray/signal/done"
 	"github.com/sagernet/sing-box/common/xray/uuid"
+	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
 	qtls "github.com/sagernet/sing-quic"
 	"github.com/sagernet/sing/common"
@@ -43,7 +44,7 @@ type Client struct {
 	getHTTPClient2  func() (DialerClient, *XmuxClient)
 }
 
-func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, options option.V2RayXHTTPOptions, tlsConfig tls.Config) (adapter.V2RayClientTransport, error) {
+func NewClient(ctx context.Context, logger log.ContextLogger, dialer N.Dialer, serverAddr M.Socksaddr, options option.V2RayXHTTPOptions, tlsConfig tls.Config) (adapter.V2RayClientTransport, error) {
 	if options.Mode == "" {
 		return nil, E.New("mode is not set")
 	}
@@ -78,7 +79,7 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 		dest2 := options2.ServerOptions.Build()
 		var tlsConfig2 tls.Config
 		if options2.TLS != nil {
-			tlsConfig2, err = tls.NewClient(ctx, options2.Server, common.PtrValueOrDefault(options2.TLS))
+			tlsConfig2, err = tls.NewClient(ctx, logger, options2.Server, common.PtrValueOrDefault(options2.TLS))
 			if err != nil {
 				return nil, err
 			}
@@ -315,7 +316,7 @@ func createHTTPClient(dest M.Socksaddr, dialer N.Dialer, options *option.V2RayXH
 		}
 		transport = &http3.Transport{
 			QUICConfig: quicConfig,
-			Dial: func(ctx context.Context, addr string, tlsCfg *gotls.Config, cfg *quic.Config) (quic.EarlyConnection, error) {
+			Dial: func(ctx context.Context, addr string, tlsCfg *gotls.Config, cfg *quic.Config) (*quic.Conn, error) {
 				udpConn, dErr := dialer.DialContext(ctx, N.NetworkUDP, dest)
 				if dErr != nil {
 					return nil, dErr

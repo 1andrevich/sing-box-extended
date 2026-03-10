@@ -21,7 +21,6 @@ import (
 	"github.com/sagernet/sing-box/protocol/block"
 	"github.com/sagernet/sing-box/protocol/bond"
 	"github.com/sagernet/sing-box/protocol/direct"
-	protocolDNS "github.com/sagernet/sing-box/protocol/dns"
 	"github.com/sagernet/sing-box/protocol/group"
 	"github.com/sagernet/sing-box/protocol/http"
 	"github.com/sagernet/sing-box/protocol/limiter/bandwidth"
@@ -88,7 +87,6 @@ func OutboundRegistry() *outbound.Registry {
 	direct.RegisterOutbound(registry)
 
 	block.RegisterOutbound(registry)
-	protocolDNS.RegisterOutbound(registry)
 
 	group.RegisterFailover(registry)
 	group.RegisterSelector(registry)
@@ -99,6 +97,7 @@ func OutboundRegistry() *outbound.Registry {
 	shadowsocks.RegisterOutbound(registry)
 	vmess.RegisterOutbound(registry)
 	trojan.RegisterOutbound(registry)
+	registerNaiveOutbound(registry)
 	tor.RegisterOutbound(registry)
 	ssh.RegisterOutbound(registry)
 	shadowtls.RegisterOutbound(registry)
@@ -112,7 +111,6 @@ func OutboundRegistry() *outbound.Registry {
 	connection.RegisterOutbound(registry)
 
 	registerQUICOutbounds(registry)
-	registerWireGuardOutbound(registry)
 	registerStubForRemovedOutbounds(registry)
 
 	return registry
@@ -162,6 +160,9 @@ func ServiceRegistry() *service.Registry {
 	ssmapi.RegisterService(registry)
 
 	registerDERPService(registry)
+	registerCCMService(registry)
+	registerOCMService(registry)
+	registerOOMKillerService(registry)
 
 	return registry
 }
@@ -175,5 +176,8 @@ func registerStubForRemovedInbounds(registry *inbound.Registry) {
 func registerStubForRemovedOutbounds(registry *outbound.Registry) {
 	outbound.Register[option.ShadowsocksROutboundOptions](registry, C.TypeShadowsocksR, func(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.ShadowsocksROutboundOptions) (adapter.Outbound, error) {
 		return nil, E.New("ShadowsocksR is deprecated and removed in sing-box 1.6.0")
+	})
+	outbound.Register[option.StubOptions](registry, C.TypeWireGuard, func(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.StubOptions) (adapter.Outbound, error) {
+		return nil, E.New("WireGuard outbound is deprecated in sing-box 1.11.0 and removed in sing-box 1.13.0, use WireGuard endpoint instead")
 	})
 }

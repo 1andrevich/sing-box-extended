@@ -50,7 +50,7 @@ func NewService(ctx context.Context, logger log.ContextLogger, tag string, optio
 	}
 	creds := insecure.NewCredentials()
 	if options.TLS != nil {
-		tlsConfig, err := tls.NewClient(ctx, options.Server, common.PtrValueOrDefault(options.TLS))
+		tlsConfig, err := tls.NewClient(ctx, logger, options.Server, common.PtrValueOrDefault(options.TLS))
 		if err != nil {
 			return nil, err
 		}

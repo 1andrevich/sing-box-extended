@@ -136,10 +136,12 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		s.handler.NewConnectionEx(HWIDContext(DupContext(request.Context()), request.Header), conn, source, M.Socksaddr{}, nil)
 	} else {
 		writer.WriteHeader(http.StatusOK)
+		flusher := writer.(http.Flusher)
+		flusher.Flush()
 		done := make(chan struct{})
 		conn := NewHTTP2Wrapper(&ServerHTTPConn{
 			NewHTTPConn(request.Body, writer),
-			writer.(http.Flusher),
+			flusher,
 		})
 		s.handler.NewConnectionEx(HWIDContext(request.Context(), request.Header), conn, source, M.Socksaddr{}, N.OnceClose(func(it error) {
 			close(done)

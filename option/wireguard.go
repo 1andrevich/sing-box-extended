@@ -56,34 +56,6 @@ type WARPProfile struct {
 	Detour     string `json:"detour,omitempty"`
 }
 
-type LegacyWireGuardOutboundOptions struct {
-	DialerOptions
-	SystemInterface bool                             `json:"system_interface,omitempty"`
-	GSO             bool                             `json:"gso,omitempty"`
-	InterfaceName   string                           `json:"interface_name,omitempty"`
-	LocalAddress    badoption.Listable[netip.Prefix] `json:"local_address"`
-	PrivateKey      string                           `json:"private_key"`
-	Peers           []LegacyWireGuardPeer            `json:"peers,omitempty"`
-	ServerOptions
-	PeerPublicKey              string            `json:"peer_public_key"`
-	PreSharedKey               string            `json:"pre_shared_key,omitempty"`
-	Reserved                   []uint8           `json:"reserved,omitempty"`
-	Workers                    int               `json:"workers,omitempty"`
-	PreallocatedBuffersPerPool uint32            `json:"preallocated_buffers_per_pool,omitempty"`
-	DisablePauses              bool              `json:"disable_pauses,omitempty"`
-	MTU                        uint32            `json:"mtu,omitempty"`
-	Network                    NetworkList       `json:"network,omitempty"`
-	Amnezia                    *WireGuardAmnezia `json:"amnezia,omitempty"`
-}
-
-type LegacyWireGuardPeer struct {
-	ServerOptions
-	PublicKey    string                           `json:"public_key,omitempty"`
-	PreSharedKey string                           `json:"pre_shared_key,omitempty"`
-	AllowedIPs   badoption.Listable[netip.Prefix] `json:"allowed_ips,omitempty"`
-	Reserved     []uint8                          `json:"reserved,omitempty"`
-}
-
 type WireGuardAmnezia struct {
 	JC    int               `json:"jc,omitempty"`
 	JMin  int               `json:"jmin,omitempty"`
