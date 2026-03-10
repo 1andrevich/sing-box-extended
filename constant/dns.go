@@ -34,4 +34,5 @@ const (
 const (
 	DNSProviderAliDNS     = "alidns"
 	DNSProviderCloudflare = "cloudflare"
+	DNSProviderACMEDNS    = "acmedns"
 )

@@ -6,6 +6,7 @@ import (
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/tls"
 	C "github.com/sagernet/sing-box/constant"
+	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing-box/transport/v2rayhttp"
 	"github.com/sagernet/sing-box/transport/v2rayhttpupgrade"
@@ -47,7 +48,7 @@ func NewServerTransport(ctx context.Context, logger logger.ContextLogger, option
 	}
 }
 
-func NewClientTransport(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, options option.V2RayTransportOptions, tlsConfig tls.Config) (adapter.V2RayClientTransport, error) {
+func NewClientTransport(ctx context.Context, logger log.ContextLogger, dialer N.Dialer, serverAddr M.Socksaddr, options option.V2RayTransportOptions, tlsConfig tls.Config) (adapter.V2RayClientTransport, error) {
 	if options.Type == "" {
 		return nil, nil
 	}
@@ -66,7 +67,7 @@ func NewClientTransport(ctx context.Context, dialer N.Dialer, serverAddr M.Socks
 	case C.V2RayTransportTypeHTTPUpgrade:
 		return v2rayhttpupgrade.NewClient(ctx, dialer, serverAddr, options.HTTPUpgradeOptions, tlsConfig)
 	case C.V2RayTransportTypeXHTTP:
-		return xhttp.NewClient(ctx, dialer, serverAddr, options.XHTTPOptions, tlsConfig)
+		return xhttp.NewClient(ctx, logger, dialer, serverAddr, options.XHTTPOptions, tlsConfig)
 	default:
 		return nil, E.New("unknown transport type: " + options.Type)
 	}

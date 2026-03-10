@@ -9,12 +9,12 @@ import (
 	"github.com/ameshkov/dnscrypt/v2"
 	mDNS "github.com/miekg/dns"
 	"github.com/sagernet/sing-box/adapter"
+	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/dns"
 	"github.com/sagernet/sing-box/log"
+	"github.com/sagernet/sing-box/option"
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
-	C "github.com/sagernet/sing-box/constant"
-	"github.com/sagernet/sing-box/option"
 )
 
 var _ adapter.DNSTransport = (*SDNSTransport)(nil)
@@ -25,9 +25,9 @@ func RegisterSDNS(registry *dns.TransportRegistry) {
 
 type SDNSTransport struct {
 	dns.TransportAdapter
-	client      *dnscrypt.Client
-	name        string
-	stamp string
+	client *dnscrypt.Client
+	name   string
+	stamp  string
 
 	mtx sync.Mutex
 }
@@ -61,6 +61,9 @@ func (t *SDNSTransport) Close() error {
 	return nil
 }
 
+func (t *SDNSTransport) Reset() {
+}
+
 func (t *SDNSTransport) Exchange(ctx context.Context, message *mDNS.Msg) (*mDNS.Msg, error) {
 	resolverInfo, err := t.client.Dial(t.stamp)
 	if err != nil {
@@ -68,4 +71,3 @@ func (t *SDNSTransport) Exchange(ctx context.Context, message *mDNS.Msg) (*mDNS.
 	}
 	return t.client.Exchange(message, resolverInfo)
 }
-
