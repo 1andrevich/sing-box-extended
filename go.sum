@@ -451,8 +451,8 @@ github.com/shtorm-7/sing-mux v0.3.4-extended-1.0.0 h1:a5OoXr3e2ACbM6vDIaaGL44IdH
 github.com/shtorm-7/sing-mux v0.3.4-extended-1.0.0/go.mod h1:QvlKMyNBNrQoyX4x+gq028uPbLM2XeRpWtDsWBJbFSk=
 github.com/shtorm-7/tailscale v1.92.4-sing-box-1.13-mod.6-extended-1.0.2 h1:gCTT0YleFvcaqKwLVoLLXEUqtN8at45XGuoP77EA/CQ=
 github.com/shtorm-7/tailscale v1.92.4-sing-box-1.13-mod.6-extended-1.0.2/go.mod h1:TYIIqO5sZpWq873rLIeO2usszSMUpR3h6WdqVVs65ug=
-github.com/shtorm-7/wireguard-go v0.0.2-beta.1-extended-1.3.3 h1:Ks8giyfi1d0oMK74GWshyw2kBsYnAu6QQKvG7xD6ulc=
-github.com/shtorm-7/wireguard-go v0.0.2-beta.1-extended-1.3.3/go.mod h1:Me2JlCDYHxnd0mnuX7L5LXAeDHCltI7vSKq3eTE6SVE=
+github.com/shtorm-7/wireguard-go v0.0.2-beta.1-extended-1.3.4 h1:t/2ZxRo8cwvydImFaKuUSDrcZYhX753JiXGe7411krI=
+github.com/shtorm-7/wireguard-go v0.0.2-beta.1-extended-1.3.4/go.mod h1:Me2JlCDYHxnd0mnuX7L5LXAeDHCltI7vSKq3eTE6SVE=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
 github.com/spf13/cobra v1.10.2 h1:DMTTonx5m65Ic0GOoRY2c16WCbHxOOw6xxezuLaBpcU=
 github.com/spf13/cobra v1.10.2/go.mod h1:7C1pvHqHw5A4vrJfjNwvOdzYu0Gml16OCs2GRiTUUS4=
