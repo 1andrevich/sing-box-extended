@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # sing-box-extended
 
 Sing-box with extended features.
@@ -12,6 +13,9 @@ Sing-box with extended features.
 * SDNS (DNSCrypt)
 * Extended Wireguard options
 * Unified delay
+=======
+# sing-box
+>>>>>>> v1.13.11
 
 ## Examples
 
