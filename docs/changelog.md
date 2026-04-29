@@ -2,8 +2,6 @@
 icon: material/alert-decagram
 ---
 
-<<<<<<< HEAD
-=======
 #### 1.13.11
 
 * Fix process searcher failure introduced in 1.13.9
@@ -63,7 +61,6 @@ from [SagerNet/go](https://github.com/SagerNet/go).
 
 See [OCM](/configuration/service/ocm).
 
->>>>>>> v1.13.11
 #### 1.13.2
 
 * Fixes and improvements

@@ -30,6 +30,7 @@ type UDPInjectableInbound interface {
 type InboundRegistry interface {
 	option.InboundOptionsRegistry
 	Create(ctx context.Context, router Router, logger log.ContextLogger, tag string, inboundType string, options any) (Inbound, error)
+	UnsafeCreate(ctx context.Context, router Router, logger log.ContextLogger, tag string, inboundType string, options any) (Inbound, error)
 }
 
 type InboundManager interface {
@@ -41,16 +42,15 @@ type InboundManager interface {
 }
 
 type InboundContext struct {
-	Inbound           string
-	InboundType       string
-	IPVersion         uint8
-	Network           string
-	Source            M.Socksaddr
-	Destination       M.Socksaddr
-	TunnelSource      string
-	TunnelDestination string
-	User              string
-	Outbound          string
+	Inbound     string
+	InboundType string
+	IPVersion   uint8
+	Network     string
+	Source      M.Socksaddr
+	Destination M.Socksaddr
+	Gateway     *netip.Addr
+	User        string
+	Outbound    string
 
 	// sniffer
 

@@ -1,5 +1,3 @@
-//go:build with_quic
-
 package main
 
 import (

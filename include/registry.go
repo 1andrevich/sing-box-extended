@@ -8,6 +8,7 @@ import (
 	"github.com/sagernet/sing-box/adapter/endpoint"
 	"github.com/sagernet/sing-box/adapter/inbound"
 	"github.com/sagernet/sing-box/adapter/outbound"
+	"github.com/sagernet/sing-box/adapter/provider"
 	"github.com/sagernet/sing-box/adapter/service"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/dns"
@@ -19,12 +20,16 @@ import (
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing-box/protocol/anytls"
 	"github.com/sagernet/sing-box/protocol/block"
+	"github.com/sagernet/sing-box/protocol/bond"
 	"github.com/sagernet/sing-box/protocol/direct"
 	"github.com/sagernet/sing-box/protocol/group"
 	"github.com/sagernet/sing-box/protocol/http"
+	"github.com/sagernet/sing-box/protocol/limiter/bandwidth"
+	"github.com/sagernet/sing-box/protocol/limiter/connection"
 	"github.com/sagernet/sing-box/protocol/mieru"
 	"github.com/sagernet/sing-box/protocol/mixed"
 	"github.com/sagernet/sing-box/protocol/naive"
+	"github.com/sagernet/sing-box/protocol/parser"
 	"github.com/sagernet/sing-box/protocol/redirect"
 	"github.com/sagernet/sing-box/protocol/shadowsocks"
 	"github.com/sagernet/sing-box/protocol/shadowtls"
@@ -33,16 +38,23 @@ import (
 	"github.com/sagernet/sing-box/protocol/tor"
 	"github.com/sagernet/sing-box/protocol/trojan"
 	"github.com/sagernet/sing-box/protocol/tun"
-	"github.com/sagernet/sing-box/protocol/tunnel"
 	"github.com/sagernet/sing-box/protocol/vless"
 	"github.com/sagernet/sing-box/protocol/vmess"
+	"github.com/sagernet/sing-box/protocol/vpn"
+	localProvider "github.com/sagernet/sing-box/provider/local"
+	remoteProvider "github.com/sagernet/sing-box/provider/remote"
+	"github.com/sagernet/sing-box/service/admin_panel"
+	"github.com/sagernet/sing-box/service/manager"
+	"github.com/sagernet/sing-box/service/node"
+	nodeManagerClient "github.com/sagernet/sing-box/service/node_manager/client"
+	nodeManagerServer "github.com/sagernet/sing-box/service/node_manager/server"
 	"github.com/sagernet/sing-box/service/resolved"
 	"github.com/sagernet/sing-box/service/ssmapi"
 	E "github.com/sagernet/sing/common/exceptions"
 )
 
 func Context(ctx context.Context) context.Context {
-	return box.Context(ctx, InboundRegistry(), OutboundRegistry(), EndpointRegistry(), DNSTransportRegistry(), ServiceRegistry())
+	return box.Context(ctx, InboundRegistry(), OutboundRegistry(), EndpointRegistry(), ProviderRegistry(), DNSTransportRegistry(), ServiceRegistry())
 }
 
 func InboundRegistry() *inbound.Registry {
@@ -65,8 +77,11 @@ func InboundRegistry() *inbound.Registry {
 	vless.RegisterInbound(registry)
 	anytls.RegisterInbound(registry)
 
+	bond.RegisterInbound(registry)
+
 	registerQUICInbounds(registry)
 	registerStubForRemovedInbounds(registry)
+	registerMTProxyInbound(registry)
 
 	return registry
 }
@@ -78,6 +93,7 @@ func OutboundRegistry() *outbound.Registry {
 
 	block.RegisterOutbound(registry)
 
+	group.RegisterFallback(registry)
 	group.RegisterSelector(registry)
 	group.RegisterURLTest(registry)
 
@@ -93,6 +109,14 @@ func OutboundRegistry() *outbound.Registry {
 	vless.RegisterOutbound(registry)
 	mieru.RegisterOutbound(registry)
 	anytls.RegisterOutbound(registry)
+	registerMASQUEOutbound(registry)
+
+	bond.RegisterOutbound(registry)
+
+	bandwidth.RegisterOutbound(registry)
+	connection.RegisterOutbound(registry)
+
+	parser.RegisterOutbound(registry)
 
 	registerQUICOutbounds(registry)
 	registerStubForRemovedOutbounds(registry)
@@ -103,11 +127,21 @@ func OutboundRegistry() *outbound.Registry {
 func EndpointRegistry() *endpoint.Registry {
 	registry := endpoint.NewRegistry()
 
-	tunnel.RegisterServerEndpoint(registry)
-	tunnel.RegisterClientEndpoint(registry)
+	vpn.RegisterServerEndpoint(registry)
+	vpn.RegisterClientEndpoint(registry)
 
 	registerWireGuardEndpoint(registry)
 	registerTailscaleEndpoint(registry)
+
+	return registry
+}
+
+func ProviderRegistry() *provider.Registry {
+	registry := provider.NewRegistry()
+
+	localProvider.RegisterProviderInline(registry)
+	localProvider.RegisterProviderLocal(registry)
+	remoteProvider.RegisterProvider(registry)
 
 	return registry
 }
@@ -135,6 +169,11 @@ func DNSTransportRegistry() *dns.TransportRegistry {
 func ServiceRegistry() *service.Registry {
 	registry := service.NewRegistry()
 
+	admin_panel.RegisterService(registry)
+	manager.RegisterService(registry)
+	node.RegisterService(registry)
+	nodeManagerClient.RegisterService(registry)
+	nodeManagerServer.RegisterService(registry)
 	resolved.RegisterService(registry)
 	ssmapi.RegisterService(registry)
 

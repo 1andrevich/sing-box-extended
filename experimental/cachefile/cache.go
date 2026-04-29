@@ -44,6 +44,7 @@ type CacheFile struct {
 	storeFakeIP       bool
 	storeRDRC         bool
 	storeWARPConfig   bool
+	storeMASQUEConfig bool
 	rdrcTimeout       time.Duration
 	DB                *bbolt.DB
 	resetAccess       sync.Mutex
@@ -82,17 +83,18 @@ func New(ctx context.Context, options option.CacheFileOptions) *CacheFile {
 		}
 	}
 	return &CacheFile{
-		ctx:             ctx,
-		path:            filemanager.BasePath(ctx, path),
-		cacheID:         cacheIDBytes,
-		storeFakeIP:     options.StoreFakeIP,
-		storeRDRC:       options.StoreRDRC,
-		storeWARPConfig: options.StoreWARPConfig,
-		rdrcTimeout:     rdrcTimeout,
-		saveDomain:      make(map[netip.Addr]string),
-		saveAddress4:    make(map[string]netip.Addr),
-		saveAddress6:    make(map[string]netip.Addr),
-		saveRDRC:        make(map[saveRDRCCacheKey]bool),
+		ctx:               ctx,
+		path:              filemanager.BasePath(ctx, path),
+		cacheID:           cacheIDBytes,
+		storeFakeIP:       options.StoreFakeIP,
+		storeRDRC:         options.StoreRDRC,
+		storeWARPConfig:   options.StoreWARPConfig,
+		storeMASQUEConfig: options.StoreMASQUEConfig,
+		rdrcTimeout:       rdrcTimeout,
+		saveDomain:        make(map[netip.Addr]string),
+		saveAddress4:      make(map[string]netip.Addr),
+		saveAddress6:      make(map[string]netip.Addr),
+		saveRDRC:          make(map[saveRDRCCacheKey]bool),
 	}
 }
 
@@ -366,6 +368,10 @@ func (c *CacheFile) StoreWARPConfig() bool {
 	return c.storeWARPConfig
 }
 
+func (c *CacheFile) StoreMASQUEConfig() bool {
+	return c.storeMASQUEConfig
+}
+
 func (c *CacheFile) LoadWARPConfig(tag string) *adapter.SavedBinary {
 	var savedConfig adapter.SavedBinary
 	err := c.DB.View(func(t *bbolt.Tx) error {
@@ -396,5 +402,71 @@ func (c *CacheFile) SaveWARPConfig(tag string, set *adapter.SavedBinary) error {
 			return err
 		}
 		return bucket.Put([]byte(tag), configBinary)
+	})
+}
+
+func (c *CacheFile) LoadMASQUEConfig(tag string) *adapter.SavedBinary {
+	var savedConfig adapter.SavedBinary
+	err := c.DB.View(func(t *bbolt.Tx) error {
+		bucket := c.bucket(t, bucketRuleSet)
+		if bucket == nil {
+			return os.ErrNotExist
+		}
+		configBinary := bucket.Get([]byte(tag))
+		if len(configBinary) == 0 {
+			return os.ErrInvalid
+		}
+		return savedConfig.UnmarshalBinary(configBinary)
+	})
+	if err != nil {
+		return nil
+	}
+	return &savedConfig
+}
+
+func (c *CacheFile) SaveMASQUEConfig(tag string, set *adapter.SavedBinary) error {
+	return c.DB.Batch(func(t *bbolt.Tx) error {
+		bucket, err := c.createBucket(t, bucketRuleSet)
+		if err != nil {
+			return err
+		}
+		configBinary, err := set.MarshalBinary()
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(tag), configBinary)
+	})
+}
+
+func (c *CacheFile) LoadSubscription(tag string) *adapter.SavedBinary {
+	var savedSet adapter.SavedBinary
+	err := c.DB.View(func(t *bbolt.Tx) error {
+		bucket := c.bucket(t, bucketRuleSet)
+		if bucket == nil {
+			return os.ErrNotExist
+		}
+		setBinary := bucket.Get([]byte(tag))
+		if len(setBinary) == 0 {
+			return os.ErrInvalid
+		}
+		return savedSet.UnmarshalBinary(setBinary)
+	})
+	if err != nil {
+		return nil
+	}
+	return &savedSet
+}
+
+func (c *CacheFile) SaveSubscription(tag string, sub *adapter.SavedBinary) error {
+	return c.DB.Batch(func(t *bbolt.Tx) error {
+		bucket, err := c.createBucket(t, bucketRuleSet)
+		if err != nil {
+			return err
+		}
+		setBinary, err := sub.MarshalBinary()
+		if err != nil {
+			return err
+		}
+		return bucket.Put([]byte(tag), setBinary)
 	})
 }

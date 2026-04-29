@@ -70,14 +70,10 @@ update_certificates:
 	go run ./cmd/internal/update_certificates
 
 release:
-	go run ./cmd/internal/build goreleaser release --clean --skip publish
+	go run ./cmd/internal/build goreleaser release --skip=validate --clean -p 3 --skip publish
 	mkdir dist/release
 	mv dist/*.tar.gz \
 		dist/*.zip \
-		dist/*.deb \
-		dist/*.rpm \
-		dist/*_amd64.pkg.tar.zst \
-		dist/*_arm64.pkg.tar.zst \
 		dist/release
 	ghr --replace --draft --prerelease -p 5 "v${VERSION}" dist/release
 	rm -r dist/release
@@ -101,7 +97,7 @@ upload_android:
 	ghr --replace --draft --prerelease -p 5 "v${VERSION}" dist/release_android
 	rm -rf dist/release_android
 
-release_android: lib_android update_android_version build_android upload_android
+release_android: lib_android update_android_version build_android
 
 publish_android:
 	cd ../sing-box-for-android && ./gradlew :app:publishPlayReleaseBundle && ./gradlew --stop

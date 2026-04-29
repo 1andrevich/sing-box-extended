@@ -2,22 +2,47 @@
 
 Sing-box with extended features.
 
-## Features
+## 🔥 Features
 
-* Amnezia 1.5
-* WARP
-* Tunneling
-* Mieru
-* XHTTP
-* SDNS (DNSCrypt)
-* Extended Wireguard options
-* Unified delay
+### 🌐 Protocols
+- **WARP**
+- **Masque**
+- **MTProxy**
+- **Mieru**
+- **VPN**
+- **Bond**
+- **Fallback**
 
-## Examples
+### 🚦 Limiters
+- **Bandwidth Limiter**
+- **Connection Limiter**
+
+### 🛡 Encryption & Obfuscation
+- **Amnezia 2.0**
+- **VLESS encryption**
+
+### 🔄 Transports
+- **mKCP**
+- **XHTTP**
+
+### 🛠 Services
+- **Admin Panel**
+- **Manager**
+- **Node Manager**
+
+### ⚙ Miscellaneous
+- **Link parser**
+- **SDNS (DNSCrypt)**
+- **Extended WireGuard options** 
+- **Unified Delay**
+
+## 📚 Examples
+
+Configuration examples are available here:
 
 https://github.com/shtorm-7/sing-box-extended/tree/extended/examples
 
-## Support the project
+## Support the Project
 
 If you want to support the project, you can donate to the following addresses.
 
@@ -42,7 +67,7 @@ bc1qqx97p8k4dchqkyd47s4vf74hrqdfnmhqvcja7x
 0xAcc5919C22F2B3fAa0ec7E8BaD142da5B375FBF6
 ```
 
-## License
+## 📄 License
 
 ```
 Copyright (C) 2022 by nekohasekai <contact-sagernet@sekai.icu>
