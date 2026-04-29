@@ -5,36 +5,36 @@ Sing-box with extended features.
 ## 🔥 Features
 
 ### 🌐 Protocols
-- **WARP**
-- **Masque**
-- **MTProxy**
-- **Mieru**
-- **VPN**
-- **Bond**
-- **Fallback**
+- WARP
+- Masque
+- MTProxy
+- Mieru
+- VPN
+- Bond
+- Fallback
 
 ### 🚦 Limiters
-- **Bandwidth Limiter**
-- **Connection Limiter**
+- Bandwidth Limiter
+- Connection Limiter
 
 ### 🛡 Encryption & Obfuscation
-- **Amnezia 2.0**
-- **VLESS encryption**
+- Amnezia 2.0
+- VLESS encryption
 
 ### 🔄 Transports
-- **mKCP**
-- **XHTTP**
+- mKCP
+- XHTTP
 
 ### 🛠 Services
-- **Admin Panel**
-- **Manager**
-- **Node Manager**
+- Admin Panel
+- Manager
+- Node Manager
 
 ### ⚙ Miscellaneous
-- **Link parser**
-- **SDNS (DNSCrypt)**
-- **Extended WireGuard options** 
-- **Unified Delay**
+- Link parser
+- SDNS (DNSCrypt)
+- Extended WireGuard options
+- Unified Delay
 
 ## 📚 Examples
 
