@@ -75,7 +75,7 @@ bc1qqx97p8k4dchqkyd47s4vf74hrqdfnmhqvcja7x
 0xAcc5919C22F2B3fAa0ec7E8BaD142da5B375FBF6
 ```
 
-## 📄 License
+## License
 
 ```
 Copyright (C) 2022 by nekohasekai <contact-sagernet@sekai.icu>
