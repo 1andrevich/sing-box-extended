@@ -6,7 +6,7 @@ Sing-box with extended features.
 
 ### 🌐 Protocols
 - WARP
-- Masque
+- MASQUE
 - MTProxy
 - Mieru
 - VPN
@@ -45,6 +45,14 @@ https://github.com/shtorm-7/sing-box-extended/tree/extended/examples
 ## Support the Project
 
 If you want to support the project, you can donate to the following addresses.
+
+#### Tribute
+
+**[RUB Donate](https://web.tribute.tg/d/JxY)**
+
+**[EUR Donate](https://web.tribute.tg/d/JxZ)**
+
+**[USD Donate](https://web.tribute.tg/d/Jy1)**
 
 #### TRX (Tron)
 ```
