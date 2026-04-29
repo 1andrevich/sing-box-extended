@@ -226,7 +226,7 @@ func CreateStrategy(strategy string, mode string, connectionType string, speed u
 }
 
 func createSpeedLimiter(speed uint64) *rate.Limiter {
-	return rate.NewLimiter(rate.Limit(float64(speed)), 10000)
+	return rate.NewLimiter(rate.Limit(float64(speed)), 65536)
 }
 
 func connWithDownloadBandwidthWrapper(ctx context.Context, conn net.Conn, limiter *rate.Limiter, reverse bool) net.Conn {

@@ -40,6 +40,7 @@ var migrations = map[string]string{
             inbound     TEXT NOT NULL,
             uuid        TEXT NOT NULL,
             password    TEXT NOT NULL,
+            secret      TEXT NOT NULL,
             flow        TEXT NOT NULL,
             alter_id    INTEGER NOT NULL,
             created_at  TIMESTAMP NOT NULL,

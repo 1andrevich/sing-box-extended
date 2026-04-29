@@ -1,6 +1,7 @@
 package bond
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -13,9 +14,7 @@ type bondedConn struct {
 	downloadRatios []uint8
 	uploadRatios   []uint8
 
-	readBuffer []byte
-	readOffset int
-	readSize   int
+	readBuffer *bytes.Buffer
 }
 
 func NewBondedConn(conns []net.Conn, downloadRatios, uploadRatios []uint8) *bondedConn {
@@ -23,12 +22,13 @@ func NewBondedConn(conns []net.Conn, downloadRatios, uploadRatios []uint8) *bond
 		conns:          conns,
 		downloadRatios: downloadRatios,
 		uploadRatios:   uploadRatios,
-		readBuffer:     make([]byte, 65535),
+		readBuffer:     bytes.NewBuffer(make([]byte, 0, 65536)),
 	}
 }
 
 func (c *bondedConn) Read(b []byte) (n int, err error) {
-	if c.readOffset == c.readSize {
+	if c.readBuffer.Len() == 0 {
+		c.readBuffer.Reset()
 		var header [2]byte
 		_, err := io.ReadFull(c.conns[0], header[:])
 		if err != nil {
@@ -41,19 +41,14 @@ func (c *bondedConn) Read(b []byte) (n int, err error) {
 			if chunkLen == 0 {
 				continue
 			}
-			chunk := c.readBuffer[total : total+chunkLen]
-			n, err := io.ReadFull(c.conns[i], chunk)
-			total += n
+			n, err := io.CopyN(c.readBuffer, c.conns[i], int64(chunkLen))
+			total += int(n)
 			if err != nil {
 				return total, err
 			}
 		}
-		c.readOffset = 0
-		c.readSize = size
 	}
-	n = copy(b, c.readBuffer[c.readOffset:c.readSize])
-	c.readOffset += n
-	return n, nil
+	return c.readBuffer.Read(b)
 }
 
 func (c *bondedConn) Write(b []byte) (n int, err error) {

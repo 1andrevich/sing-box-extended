@@ -27,10 +27,6 @@
       "tag": "direct-out"
     },
     {
-      "type": "dns",
-      "tag": "dns-out"
-    },
-    {
       "type": "bandwidth-limiter",
       "tag": "bandwidth-limiter",
       "strategy": "manager",
@@ -51,11 +47,7 @@
     "rules": [
       {
         "protocol": "dns",
-        "outbound": "dns-out"
-      },
-      {
-        "port": 53,
-        "outbound": "dns-out"
+        "action": "hijack-dns"
       }
     ],
     "final": "connection-limiter"

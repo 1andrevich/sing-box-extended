@@ -391,12 +391,13 @@ func (r *PostgreSQLRepository) CreateUser(user constant.UserCreate) (constant.Us
 			inbound,
 			uuid,
 			password,
+			secret,
 			flow,
 			alter_id,
 			created_at,
 			updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING 
 			id,
 			username,
@@ -404,6 +405,7 @@ func (r *PostgreSQLRepository) CreateUser(user constant.UserCreate) (constant.Us
 			inbound,
 			uuid,
 			password,
+			secret,
 			flow,
 			alter_id,
 			created_at,
@@ -414,6 +416,7 @@ func (r *PostgreSQLRepository) CreateUser(user constant.UserCreate) (constant.Us
 		user.Inbound,
 		user.UUID,
 		user.Password,
+		user.Secret,
 		user.Flow,
 		user.AlterID,
 		now,
@@ -425,11 +428,15 @@ func (r *PostgreSQLRepository) CreateUser(user constant.UserCreate) (constant.Us
 		&u.Inbound,
 		&u.UUID,
 		&u.Password,
+		&u.Secret,
 		&u.Flow,
 		&u.AlterID,
 		&u.CreatedAt,
 		&u.UpdatedAt,
 	)
+	if err != nil {
+		return u, err
+	}
 	rows := make([][]any, len(user.SquadIDs))
 	for i, squadID := range user.SquadIDs {
 		rows[i] = []any{u.ID, squadID}
@@ -465,6 +472,7 @@ func (r *PostgreSQLRepository) GetUsers(filters map[string][]string) ([]constant
 			"inbound",
 			"uuid",
 			"password",
+			"secret",
 			"flow",
 			"alter_id",
 			"created_at",
@@ -495,6 +503,7 @@ func (r *PostgreSQLRepository) GetUsers(filters map[string][]string) ([]constant
 			&u.Inbound,
 			&u.UUID,
 			&u.Password,
+			&u.Secret,
 			&u.Flow,
 			&u.AlterID,
 			&u.CreatedAt,
@@ -539,6 +548,7 @@ func (r *PostgreSQLRepository) GetUser(id int) (constant.User, error) {
 			inbound,
 			uuid,
 			password,
+			secret,
 			flow,
 			alter_id,
 			created_at,
@@ -553,6 +563,7 @@ func (r *PostgreSQLRepository) GetUser(id int) (constant.User, error) {
 		&u.Inbound,
 		&u.UUID,
 		&u.Password,
+		&u.Secret,
 		&u.Flow,
 		&u.AlterID,
 		&u.CreatedAt,
@@ -568,10 +579,11 @@ func (r *PostgreSQLRepository) UpdateUser(id int, user constant.UserUpdate) (con
 		SET
 			uuid = $1,
 			password = $2,
-			flow = $3,
-			alter_id = $4,
-			updated_at = $5
-		WHERE id = $6
+			secret = $3,
+			flow = $4,
+			alter_id = $5,
+			updated_at = $6
+		WHERE id = $7
 		RETURNING
 			id,
 			ARRAY(
@@ -584,6 +596,7 @@ func (r *PostgreSQLRepository) UpdateUser(id int, user constant.UserUpdate) (con
 			inbound,
 			uuid,
 			password,
+			secret,
 			flow,
 			alter_id,
 			created_at,
@@ -591,6 +604,7 @@ func (r *PostgreSQLRepository) UpdateUser(id int, user constant.UserUpdate) (con
 	`,
 		user.UUID,
 		user.Password,
+		user.Secret,
 		user.Flow,
 		user.AlterID,
 		time.Now(),
@@ -603,6 +617,7 @@ func (r *PostgreSQLRepository) UpdateUser(id int, user constant.UserUpdate) (con
 		&u.Inbound,
 		&u.UUID,
 		&u.Password,
+		&u.Secret,
 		&u.Flow,
 		&u.AlterID,
 		&u.CreatedAt,
@@ -628,6 +643,7 @@ func (r *PostgreSQLRepository) DeleteUser(id int) (constant.User, error) {
 			inbound,
 			uuid,
 			password,
+			secret,
 			flow,
 			alter_id,
 			created_at,
@@ -640,6 +656,7 @@ func (r *PostgreSQLRepository) DeleteUser(id int) (constant.User, error) {
 		&u.Inbound,
 		&u.UUID,
 		&u.Password,
+		&u.Secret,
 		&u.Flow,
 		&u.AlterID,
 		&u.CreatedAt,

@@ -20,6 +20,8 @@ builds:
       - with_acme
       - with_clash_api
       - with_tailscale
+      - with_masque
+      - with_mtproxy
     env:
       - CGO_ENABLED=0
       - GOTOOLCHAIN=local
@@ -61,6 +63,8 @@ builds:
       - with_acme
       - with_clash_api
       - with_tailscale
+      - with_masque
+      - with_mtproxy
       - with_manager
       - with_admin_panel
     env:
@@ -97,6 +101,8 @@ builds:
       - with_acme
       - with_clash_api
       - with_tailscale
+      - with_masque
+      - with_mtproxy
     env:
       - CGO_ENABLED=0
     targets:

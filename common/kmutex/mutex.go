@@ -12,7 +12,6 @@ type klock struct {
 	ref  uint64
 }
 
-// Create new Kmutex
 func New[T comparable]() *Kmutex[T] {
 	l := sync.Mutex{}
 	return &Kmutex[T]{
@@ -21,7 +20,6 @@ func New[T comparable]() *Kmutex[T] {
 	}
 }
 
-// Unlock Kmutex by unique ID
 func (km *Kmutex[T]) Unlock(key T) {
 	km.l.Lock()
 	defer km.l.Unlock()
@@ -37,7 +35,6 @@ func (km *Kmutex[T]) Unlock(key T) {
 	kl.cond.Signal()
 }
 
-// Lock Kmutex by unique ID
 func (km *Kmutex[T]) Lock(key T) {
 	km.l.Lock()
 	defer km.l.Unlock()

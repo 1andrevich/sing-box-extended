@@ -6,7 +6,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/patrickmn/go-cache"
+	"github.com/gofrs/uuid/v5"
+	"github.com/patrickmn/go-cache/v2"
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/adapter/inbound"
 	"github.com/sagernet/sing-box/common/kmutex"
@@ -29,9 +30,9 @@ type Inbound struct {
 	logger   logger.ContextLogger
 	router   adapter.ConnectionRouterEx
 	inbounds []adapter.Inbound
-	conns    *cache.Cache
+	conns    *cache.Cache[uuid.UUID, map[uint8]*ratioConn]
 
-	mtx *kmutex.Kmutex[string]
+	mtx *kmutex.Kmutex[uuid.UUID]
 }
 
 func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.BondInboundOptions) (adapter.Inbound, error) {
@@ -42,23 +43,23 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 		Adapter: inbound.NewAdapter(C.TypeBond, tag),
 		logger:  logger,
 		router:  uot.NewRouter(router, logger),
-		conns:   cache.New(C.TCPConnectTimeout, time.Second),
-		mtx:     kmutex.New[string](),
+		conns:   cache.New[uuid.UUID, map[uint8]*ratioConn](C.TCPConnectTimeout, time.Second),
+		mtx:     kmutex.New[uuid.UUID](),
 	}
+	router = NewRouter(router, logger, inbound.connHandler)
 	inboundRegistry := service.FromContext[adapter.InboundRegistry](ctx)
 	inbounds := make([]adapter.Inbound, len(options.Inbounds))
 	for i, inboundOptions := range options.Inbounds {
-		inbound, err := inboundRegistry.UnsafeCreate(ctx, NewRouter(router, logger, inbound.connHandler), logger, inboundOptions.Tag, inboundOptions.Type, inboundOptions.Options)
+		inbound, err := inboundRegistry.UnsafeCreate(ctx, router, logger, inboundOptions.Tag, inboundOptions.Type, inboundOptions.Options)
 		if err != nil {
 			return nil, err
 		}
 		inbounds[i] = inbound
 	}
 	inbound.inbounds = inbounds
-	inbound.conns.OnEvicted(func(s string, i interface{}) {
+	inbound.conns.OnEvicted(func(s uuid.UUID, ratioConns map[uint8]*ratioConn) {
 		inbound.mtx.Lock(s)
 		defer inbound.mtx.Unlock(s)
-		ratioConns := i.(map[uint8]*ratioConn)
 		for _, ratioConn := range ratioConns {
 			if ratioConn != nil {
 				ratioConn.conn.Close()
@@ -93,21 +94,15 @@ func (h *Inbound) Close() error {
 }
 
 func (h *Inbound) connHandler(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) error {
-	if metadata.Destination != Destination {
-		h.router.RouteConnectionEx(ctx, conn, metadata, onClose)
-		return nil
-	}
 	request, err := ReadRequest(conn)
 	if err != nil {
 		return err
 	}
-	requestUUID := request.UUID.String()
+	requestUUID := request.UUID
 	h.mtx.Lock(requestUUID)
 	var ratioConns map[uint8]*ratioConn
-	rawRatioConns, ok := h.conns.Get(requestUUID)
-	if ok {
-		ratioConns = rawRatioConns.(map[uint8]*ratioConn)
-	} else {
+	ratioConns, ok := h.conns.Get(requestUUID)
+	if !ok {
 		ratioConns = make(map[uint8]*ratioConn, request.Count)
 		h.conns.SetDefault(requestUUID, ratioConns)
 	}

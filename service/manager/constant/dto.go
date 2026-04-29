@@ -48,6 +48,7 @@ type User struct {
 	Inbound   string    `json:"inbound" validate:"required"`
 	UUID      string    `json:"uuid" validate:"required"`
 	Password  string    `json:"password" validate:"required"`
+	Secret    string    `json:"secret" validate:"required"`
 	Flow      string    `json:"flow" validate:"required"`
 	AlterID   int       `json:"alter_id" validate:"required"`
 	CreatedAt time.Time `json:"created_at" validate:"required"`
@@ -57,10 +58,11 @@ type User struct {
 type UserCreate struct {
 	SquadIDs []int  `json:"squad_ids" validate:"required"`
 	Username string `json:"username" validate:"required"`
-	Type     string `json:"type" validate:"required,oneof=hysteria hysteria2 trojan tuic vless vmess"`
+	Type     string `json:"type" validate:"required,oneof=hysteria hysteria2 mtproxy trojan tuic vless vmess"`
 	Inbound  string `json:"inbound" validate:"required"`
 	UUID     string `json:"uuid" validate:"omitempty,uuid4"`
 	Password string `json:"password" validate:"omitempty"`
+	Secret   string `json:"secret" validate:"omitempty"`
 	Flow     string `json:"flow" validate:"omitempty"`
 	AlterID  int    `json:"alter_id" validate:"omitempty"`
 }
@@ -68,6 +70,7 @@ type UserCreate struct {
 type UserUpdate struct {
 	UUID     string `json:"uuid" validate:"omitempty,uuid4"`
 	Password string `json:"password" validate:"omitempty"`
+	Secret   string `json:"secret" validate:"omitempty"`
 	Flow     string `json:"flow" validate:"omitempty"`
 	AlterID  int    `json:"alter_id" validate:"omitempty"`
 }
@@ -75,6 +78,7 @@ type UserUpdate struct {
 type BaseUser struct {
 	UUID     string `json:"uuid" validate:"omitempty,uuid4"`
 	Password string `json:"password" validate:"omitempty"`
+	Secret   string `json:"secret" validate:"omitempty"`
 	Flow     string `json:"flow" validate:"omitempty"`
 	AlterID  int    `json:"alter_id" validate:"omitempty"`
 }

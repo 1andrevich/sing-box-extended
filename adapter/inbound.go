@@ -42,16 +42,15 @@ type InboundManager interface {
 }
 
 type InboundContext struct {
-	Inbound           string
-	InboundType       string
-	IPVersion         uint8
-	Network           string
-	Source            M.Socksaddr
-	Destination       M.Socksaddr
-	TunnelSource      string
-	TunnelDestination string
-	User              string
-	Outbound          string
+	Inbound     string
+	InboundType string
+	IPVersion   uint8
+	Network     string
+	Source      M.Socksaddr
+	Destination M.Socksaddr
+	Gateway     *netip.Addr
+	User        string
+	Outbound    string
 
 	// sniffer
 

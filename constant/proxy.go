@@ -16,6 +16,9 @@ const (
 	TypeNaive             = "naive"
 	TypeWireGuard         = "wireguard"
 	TypeWARP              = "warp"
+	TypeMASQUE            = "masque"
+	TypeMTProxy           = "mtproxy"
+	TypeParser            = "parser"
 	TypeHysteria          = "hysteria"
 	TypeTor               = "tor"
 	TypeSSH               = "ssh"
@@ -27,8 +30,8 @@ const (
 	TypeTUIC              = "tuic"
 	TypeHysteria2         = "hysteria2"
 	TypeBond              = "bond"
-	TypeTunnelServer      = "tunnel-server"
-	TypeTunnelClient      = "tunnel-client"
+	TypeVPNServer         = "vpn-server"
+	TypeVPNClient         = "vpn-client"
 	TypeTailscale         = "tailscale"
 	TypeConnectionLimiter = "connection-limiter"
 	TypeBandwidthLimiter  = "bandwidth-limiter"
@@ -47,7 +50,7 @@ const (
 )
 
 const (
-	TypeFailover = "failover"
+	TypeFallback = "fallback"
 	TypeSelector = "selector"
 	TypeURLTest  = "urltest"
 )
@@ -84,6 +87,12 @@ func ProxyDisplayName(proxyType string) string {
 		return "WireGuard"
 	case TypeWARP:
 		return "WARP"
+	case TypeMASQUE:
+		return "MASQUE"
+	case TypeMTProxy:
+		return "MTProxy"
+	case TypeParser:
+		return "Parser"
 	case TypeHysteria:
 		return "Hysteria"
 	case TypeTor:
@@ -106,18 +115,18 @@ func ProxyDisplayName(proxyType string) string {
 		return "Mieru"
 	case TypeAnyTLS:
 		return "AnyTLS"
-	case TypeFailover:
-		return "Failover"
+	case TypeFallback:
+		return "Fallback"
 	case TypeTailscale:
 		return "Tailscale"
 	case TypeSelector:
 		return "Selector"
 	case TypeURLTest:
 		return "URLTest"
-	case TypeTunnelClient:
-		return "Tunnel client"
-	case TypeTunnelServer:
-		return "Tunnel server"
+	case TypeVPNClient:
+		return "VPN Client"
+	case TypeVPNServer:
+		return "VPN Server"
 	default:
 		return "Unknown"
 	}

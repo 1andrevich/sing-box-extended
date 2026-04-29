@@ -4,34 +4,37 @@ Sing-box with extended features.
 
 ## 🔥 Features
 
-### 🌐 Outbounds
-- **WARP** — Cloudflare WARP integration through WireGuard
-- **Tunnel** — Protocol for creating tunnels across nodes
-- **Bond** — Link aggregation for increased throughput
-- **Mieru** — Secure, hard to classify, hard to probe network protocol
-- **Failover** — Automatic outbound switching for high availability
+### 🌐 Protocols
+- **WARP**
+- **Masque**
+- **MTProxy**
+- **Mieru**
+- **VPN**
+- **Bond**
+- **Fallback**
 
 ### 🚦 Limiters
-- **Bandwidth Limiter** — Upload / download rate limiting
-- **Connection Limiter** — Concurrent connection control
+- **Bandwidth Limiter**
+- **Connection Limiter**
 
 ### 🛡 Encryption & Obfuscation
-- **Amnezia 1.5** — WireGuard traffic obfuscation
-- **VLESS encryption** — XRAY encryption for VLESS protocol
+- **Amnezia 2.0**
+- **VLESS encryption**
 
 ### 🔄 Transports
-- **mKCP** — Reliable UDP-based transport
-- **XHTTP** — Modern XRAY transport
+- **mKCP**
+- **XHTTP**
 
 ### 🛠 Services
-- **Admin Panel** — Web-based management interface
-- **Manager** — Management service for configuring squads, nodes, users, limiters
-- **Node Manager** — Service for connecting nodes to remote manager
+- **Admin Panel**
+- **Manager**
+- **Node Manager**
 
 ### ⚙ Miscellaneous
-- **SDNS (DNSCrypt)** — Encrypted DNS queries for enhanced privacy
-- **Extended WireGuard options** — Advanced configuration capabilities  
-- **Unified Delay** — Unified latency measurement
+- **Link parser**
+- **SDNS (DNSCrypt)**
+- **Extended WireGuard options** 
+- **Unified Delay**
 
 ## 📚 Examples
 

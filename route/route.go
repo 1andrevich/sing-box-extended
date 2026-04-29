@@ -485,8 +485,8 @@ match:
 					Fqdn: metadata.Destination.Fqdn,
 				}
 			}
-			if routeOptions.OverrideTunnelDestination != "" {
-				metadata.TunnelDestination = routeOptions.OverrideTunnelDestination
+			if routeOptions.OverrideGateway.IsValid() {
+				metadata.Gateway = routeOptions.OverrideGateway
 			}
 			if routeOptions.NetworkStrategy != nil {
 				metadata.NetworkStrategy = routeOptions.NetworkStrategy

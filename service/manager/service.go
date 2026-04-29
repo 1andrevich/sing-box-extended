@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofrs/uuid/v5"
-	"github.com/patrickmn/go-cache"
+	"github.com/patrickmn/go-cache/v2"
 	"github.com/sagernet/sing-box/adapter"
 	boxService "github.com/sagernet/sing-box/adapter/service"
 	C "github.com/sagernet/sing-box/constant"
@@ -32,7 +32,7 @@ type Service struct {
 	repository constant.Repository
 	nodes      map[string]constant.ConnectedNode
 
-	limiterLocks map[int]map[string]*cache.Cache
+	limiterLocks map[int]map[string]*cache.Cache[string, struct{}]
 
 	userValidator    *validator.Validate
 	defaultValidator *validator.Validate
@@ -79,6 +79,10 @@ func NewService(ctx context.Context, logger log.ContextLogger, tag string, optio
 			if user.Password == "" {
 				sl.ReportError(user.Password, "password", "Password", "required", "")
 			}
+		case "mtproxy":
+			if user.Secret == "" {
+				sl.ReportError(user.Secret, "secret", "Secret", "required", "")
+			}
 		}
 	}, constant.UserCreate{})
 	return &Service{
@@ -87,7 +91,7 @@ func NewService(ctx context.Context, logger log.ContextLogger, tag string, optio
 		logger:           logger,
 		repository:       repository,
 		nodes:            make(map[string]constant.ConnectedNode, 0),
-		limiterLocks:     make(map[int]map[string]*cache.Cache),
+		limiterLocks:     make(map[int]map[string]*cache.Cache[string, struct{}]),
 		userValidator:    userValidator,
 		defaultValidator: validator.New(),
 	}, nil
@@ -519,7 +523,7 @@ func (s *Service) AcquireLock(limiterId int, id string) (string, error) {
 	}
 	locks, ok := s.limiterLocks[limiterId]
 	if !ok {
-		locks = make(map[string]*cache.Cache)
+		locks = make(map[string]*cache.Cache[string, struct{}])
 		s.limiterLocks[limiter.ID] = locks
 	}
 	lock, ok := locks[id]
@@ -527,8 +531,8 @@ func (s *Service) AcquireLock(limiterId int, id string) (string, error) {
 		if len(locks) == int(limiter.Count) {
 			return "", E.New("not enough free locks")
 		}
-		lock = cache.New(time.Second*30, time.Second)
-		lock.OnEvicted(func(_ string, _ interface{}) {
+		lock = cache.New[string, struct{}](time.Second*30, time.Second)
+		lock.OnEvicted(func(_ string, _ struct{}) {
 			s.connLockMtx.Lock()
 			defer s.connLockMtx.Unlock()
 			if lock.ItemCount() == 0 {
@@ -541,7 +545,7 @@ func (s *Service) AcquireLock(limiterId int, id string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	lock.SetDefault(handleID.String(), new(struct{}))
+	lock.SetDefault(handleID.String(), struct{}{})
 	return handleID.String(), nil
 }
 
@@ -556,7 +560,7 @@ func (s *Service) RefreshLock(limiterId int, id string, handleId string) error {
 	if !ok {
 		return E.New("lock not found")
 	}
-	err := lock.Replace(handleId, new(struct{}), time.Second*30)
+	err := lock.Replace(handleId, struct{}{}, time.Second*30)
 	return err
 }
 

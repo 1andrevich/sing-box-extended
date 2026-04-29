@@ -77,6 +77,7 @@ func UserTableFactory(manager CM.Manager, logger log.Logger) func(ctx *context.C
 					Options: types.FieldOptions{
 						{Text: "Hysteria", Value: "hysteria"},
 						{Text: "Hysteria2", Value: "hysteria2"},
+						{Text: "MTProxy", Value: "mtproxy"},
 						{Text: "Trojan", Value: "trojan"},
 						{Text: "TUIC", Value: "tuic"},
 						{Text: "VLESS", Value: "vless"},
@@ -183,16 +184,18 @@ func UserTableFactory(manager CM.Manager, logger log.Logger) func(ctx *context.C
 			FieldOptions(types.FieldOptions{
 				{Text: "Hysteria", Value: "hysteria"},
 				{Text: "Hysteria2", Value: "hysteria2"},
+				{Text: "MTProxy", Value: "mtproxy"},
 				{Text: "Trojan", Value: "trojan"},
 				{Text: "TUIC", Value: "tuic"},
 				{Text: "VLESS", Value: "vless"},
 				{Text: "VMess", Value: "vmess"},
 			}).
 			FieldOnChooseOptionsHide([]string{""}, "inbound").
-			FieldOnChooseOptionsHide([]string{"", "hysteria", "hysteria2", "shadowsocks", "trojan", "tuic"}, "uuid").
-			FieldOnChooseOptionsHide([]string{"", "vless", "vmess"}, "password").
-			FieldOnChooseOptionsHide([]string{"", "hysteria", "hysteria2", "shadowsocks", "trojan", "tuic", "vmess"}, "flow").
-			FieldOnChooseOptionsHide([]string{"", "hysteria", "hysteria2", "shadowsocks", "trojan", "tuic", "vless"}, "alter_id")
+			FieldOnChooseOptionsHide([]string{"", "hysteria", "hysteria2", "mtproxy", "shadowsocks", "trojan", "tuic"}, "uuid").
+			FieldOnChooseOptionsHide([]string{"", "mtproxy", "vless", "vmess"}, "password").
+			FieldOnChooseOptionsHide([]string{"", "hysteria", "hysteria2", "shadowsocks", "trojan", "tuic", "vless", "vmess"}, "secret").
+			FieldOnChooseOptionsHide([]string{"", "hysteria", "hysteria2", "mtproxy", "shadowsocks", "trojan", "tuic", "vmess"}, "flow").
+			FieldOnChooseOptionsHide([]string{"", "hysteria", "hysteria2", "mtproxy", "shadowsocks", "trojan", "tuic", "vless"}, "alter_id")
 		formList.AddField("Inbound", "inbound", db.Varchar, form.Text).
 			FieldMust().
 			FieldDisplayButCanNotEditWhenUpdate().
@@ -203,6 +206,7 @@ func UserTableFactory(manager CM.Manager, logger log.Logger) func(ctx *context.C
 			})
 		formList.AddField("UUID", "uuid", db.Varchar, form.Text)
 		formList.AddField("Password", "password", db.Varchar, form.Text)
+		formList.AddField("Secret", "secret", db.Varchar, form.Text)
 		formList.AddField("Flow", "flow", db.Varchar, form.SelectSingle).
 			FieldOptions(types.FieldOptions{
 				{Text: "xtls-rprx-vision", Value: "xtls-rprx-vision"},
@@ -233,6 +237,7 @@ func UserTableFactory(manager CM.Manager, logger log.Logger) func(ctx *context.C
 				Inbound:  values.Get("inbound"),
 				UUID:     values.Get("uuid"),
 				Password: values.Get("password"),
+				Secret:   values.Get("secret"),
 				Flow:     values.Get("flow"),
 				AlterID:  alterId,
 			})
@@ -269,6 +274,7 @@ func UserTableFactory(manager CM.Manager, logger log.Logger) func(ctx *context.C
 			_, err = manager.UpdateUser(id, CM.UserUpdate{
 				UUID:     values.Get("uuid"),
 				Password: values.Get("password"),
+				Secret:   values.Get("secret"),
 				Flow:     values.Get("flow"),
 				AlterID:  alterId,
 			})
