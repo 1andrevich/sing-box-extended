@@ -4,33 +4,33 @@ Sing-box with extended features.
 
 ## 🔥 Features
 
-### 🌐 Protocols
+### Protocols
 - WARP
-- Masque
+- MASQUE
 - MTProxy
 - Mieru
 - VPN
 - Bond
 - Fallback
 
-### 🚦 Limiters
+### Limiters
 - Bandwidth Limiter
 - Connection Limiter
 
-### 🛡 Encryption & Obfuscation
+### Encryption & Obfuscation
 - Amnezia 2.0
 - VLESS encryption
 
-### 🔄 Transports
+### Transports
 - mKCP
 - XHTTP
 
-### 🛠 Services
+### Services
 - Admin Panel
 - Manager
 - Node Manager
 
-### ⚙ Miscellaneous
+### Miscellaneous
 - Link parser
 - SDNS (DNSCrypt)
 - Extended WireGuard options
@@ -45,6 +45,14 @@ https://github.com/shtorm-7/sing-box-extended/tree/extended/examples
 ## Support the Project
 
 If you want to support the project, you can donate to the following addresses.
+
+#### Tribute
+
+**[RUB Donate](https://t.me/tribute/app?startapp=dJxY)**
+
+**[EUR Donate](https://t.me/tribute/app?startapp=dJxZ)**
+
+**[USD Donate](https://t.me/tribute/app?startapp=dJy1)**
 
 #### TRX (Tron)
 ```
@@ -67,7 +75,7 @@ bc1qqx97p8k4dchqkyd47s4vf74hrqdfnmhqvcja7x
 0xAcc5919C22F2B3fAa0ec7E8BaD142da5B375FBF6
 ```
 
-## 📄 License
+## License
 
 ```
 Copyright (C) 2022 by nekohasekai <contact-sagernet@sekai.icu>
