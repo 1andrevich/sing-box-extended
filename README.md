@@ -4,7 +4,7 @@ Sing-box with extended features.
 
 ## 🔥 Features
 
-### 🌐 Protocols
+### Protocols
 - WARP
 - MASQUE
 - MTProxy
@@ -13,24 +13,24 @@ Sing-box with extended features.
 - Bond
 - Fallback
 
-### 🚦 Limiters
+### Limiters
 - Bandwidth Limiter
 - Connection Limiter
 
-### 🛡 Encryption & Obfuscation
+### Encryption & Obfuscation
 - Amnezia 2.0
 - VLESS encryption
 
-### 🔄 Transports
+### Transports
 - mKCP
 - XHTTP
 
-### 🛠 Services
+### Services
 - Admin Panel
 - Manager
 - Node Manager
 
-### ⚙ Miscellaneous
+### Miscellaneous
 - Link parser
 - SDNS (DNSCrypt)
 - Extended WireGuard options
