@@ -68,7 +68,7 @@ func NewEndpoint(ctx context.Context, router adapter.Router, logger log.ContextL
 			}
 		}
 		if config == nil {
-			config, err := endpoint.createConfig()
+			config, err = endpoint.createConfig()
 			if err != nil {
 				logger.ErrorContext(ctx, err)
 				return
@@ -183,6 +183,16 @@ func (w *Endpoint) isEndpointInitialized(ctx context.Context) error {
 }
 
 func (w *Endpoint) createConfig() (*Config, error) {
+	opts := make([]cloudflare.CloudflareApiOption, 0, 1)
+	if w.options.Profile.Detour != "" {
+		detour, ok := service.FromContext[adapter.OutboundManager](w.ctx).Outbound(w.options.Profile.Detour)
+		if !ok {
+			return nil, E.New("outbound detour not found: ", w.options.Profile.Detour)
+		}
+		opts = append(opts, cloudflare.WithDialContext(func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return detour.DialContext(ctx, network, M.ParseSocksaddr(addr))
+		}))
+	}
 	var privateKey wgtypes.Key
 	var err error
 	if w.options.Profile.PrivateKey != "" {
@@ -195,16 +205,6 @@ func (w *Endpoint) createConfig() (*Config, error) {
 		if err != nil {
 			return nil, err
 		}
-	}
-	opts := make([]cloudflare.CloudflareApiOption, 0, 1)
-	if w.options.Profile.Detour != "" {
-		detour, ok := service.FromContext[adapter.OutboundManager](w.ctx).Outbound(w.options.Profile.Detour)
-		if !ok {
-			return nil, E.New("outbound detour not found: ", w.options.Profile.Detour)
-		}
-		opts = append(opts, cloudflare.WithDialContext(func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return detour.DialContext(ctx, network, M.ParseSocksaddr(addr))
-		}))
 	}
 	api := cloudflare.NewCloudflareApi(opts...)
 	var profile *cloudflare.CloudflareProfile
