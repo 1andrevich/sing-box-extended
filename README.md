@@ -48,11 +48,11 @@ If you want to support the project, you can donate to the following addresses.
 
 #### Tribute
 
-**[RUB Donate](https://t.me/tribute/app?startapp=dJxY)**
+**[RUB Donate](https://web.tribute.tg/d/JxY)**
 
-**[EUR Donate](https://t.me/tribute/app?startapp=dJxZ)**
+**[EUR Donate](https://web.tribute.tg/d/JxZ)**
 
-**[USD Donate](https://t.me/tribute/app?startapp=dJy1)**
+**[USD Donate](https://web.tribute.tg/d/Jy1)**
 
 #### TRX (Tron)
 ```
