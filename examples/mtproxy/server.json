@@ -44,7 +44,7 @@
       "allow_fallback_on_unknown_dc": false,
       // tolerate_time_skewness is a time boundary that defines a time range where
       // faketls timestamp is acceptable.
-      "tolerate_time_skewness": "",
+      "tolerate_time_skewness": "3s",
       // idle_timeout is a timeout for relay when we have to break a stream.
       "idle_timeout": "5m",
       // handshake_timeout is a timeout during which all handshake ceremonies must
