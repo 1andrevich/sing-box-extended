@@ -79,7 +79,6 @@ require (
 	github.com/panjf2000/ants/v2 v2.12.0 // indirect
 	github.com/quic-go/quic-go v0.59.0 // indirect
 	github.com/tylertreat/BoomFilters v0.0.0-20251117164519-53813c36cc1b // indirect
-	github.com/yl2chen/cidranger v1.0.2 // indirect
 	gvisor.dev/gvisor v0.0.0-20260408064518-65a410b0d584 // indirect
 )
 
@@ -236,7 +235,7 @@ replace github.com/sagernet/sing-vmess => github.com/starifly/sing-vmess v0.2.7-
 
 replace github.com/patrickmn/go-cache/v2 => github.com/shtorm-7/go-cache/v2 v2.1.0-extended-1.0.2
 
-replace github.com/dolonet/mtg-multi => github.com/shtorm-7/mtg-multi v1.8.0-extended-1.0.0
+replace github.com/dolonet/mtg-multi => github.com/shtorm-7/mtg-multi v1.8.0-extended-1.0.1
 
 replace github.com/Diniboy1123/connect-ip-go => github.com/shtorm-7/connect-ip-go v1.0.0-extended-1.0.0
 

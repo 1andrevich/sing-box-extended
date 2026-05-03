@@ -6,7 +6,6 @@ import (
 
 	"github.com/dolonet/mtg-multi/antireplay"
 	"github.com/dolonet/mtg-multi/events"
-	"github.com/dolonet/mtg-multi/ipblocklist"
 	"github.com/dolonet/mtg-multi/mtglib"
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/adapter/inbound"
@@ -59,8 +58,6 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 		Logger:          mtgLogger,
 		Network:         NewNetworkAdapter(ctx, NewDialer(inbound.newConnection)),
 		AntiReplayCache: antireplay.NewNoop(),
-		IPBlocklist:     ipblocklist.NewNoop(),
-		IPAllowlist:     ipblocklist.NewNoop(),
 		EventStream:     events.NewNoopStream(),
 
 		Secrets:                     secrets,
