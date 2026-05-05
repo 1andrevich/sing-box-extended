@@ -105,6 +105,8 @@ builds:
       - with_mtproxy
     env:
       - CGO_ENABLED=0
+      - GOROOT={{ .Env.GOPATH }}/go_win7
+    tool: "{{ .Env.GOPATH }}/go_win7/bin/go"
     targets:
       - windows_amd64_v1
       - windows_386
