@@ -1,6 +1,6 @@
 {
   "log": {
-    "level": "error"
+    "level": "info"
   },
   "dns": {
     "servers": [
@@ -73,10 +73,17 @@
     {
       "type": "direct",
       "tag": "direct"
+    },
+    {
+      "type": "socks",
+      "tag": "socks-out",
+      "server": "192.168.1.1",
+      "server_port": 17085,
+      "version": "5"
     }
   ],
   "route": {
-    "final": "direct",
+    "final": "socks-out",
     "default_domain_resolver": "default",
     "auto_detect_interface": true
   }

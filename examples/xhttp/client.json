@@ -35,9 +35,10 @@
       },
       "transport": {
         "type": "xhttp",
-        "mode": "stream-up",
+        "mode": "stream-up", // packet-up, stream-one
         "host": "example.com",
         "path": "/xhttp",
+        "headers": {},
         "domain_strategy": "prefer_ipv4",
         "x_padding_bytes": "100-1000",
         "no_grpc_header": false, // stream-up/one, client only
@@ -69,6 +70,7 @@
         "download": {
           "host": "example.com",
           "path": "/xhttp",
+          "headers": {},
           "domain_strategy": "prefer_ipv4",
           "x_padding_bytes": "100-1000",
           "no_grpc_header": false, // stream-up/one, client only

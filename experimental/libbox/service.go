@@ -171,7 +171,7 @@ func (w *platformInterfaceWrapper) ReadWIFIState() adapter.WIFIState {
 	if wifiState == nil {
 		return adapter.WIFIState{}
 	}
-	return (adapter.WIFIState)(*wifiState)
+	return adapter.WIFIState(*wifiState)
 }
 
 func (w *platformInterfaceWrapper) SystemCertificates() []string {

@@ -8,7 +8,7 @@ type NetBuffer struct {
 }
 
 func (n *NetBuffer) Get() []byte {
-	return *(n.buf.Get().(*[]byte))
+	return *n.buf.Get().(*[]byte)
 }
 
 func (n *NetBuffer) Put(buf []byte) {

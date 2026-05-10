@@ -48,7 +48,7 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 	case "users":
 		usersStrategies := make(map[string]BandwidthStrategy, len(options.Users))
 		for _, user := range options.Users {
-			userStrategy, err := CreateStrategy(user.Strategy, user.Mode, user.ConnectionType, options.Speed.Value())
+			userStrategy, err := CreateStrategy(user.Strategy, user.Mode, user.ConnectionType, options.Speed.Value(), options.FlowKeys)
 			if err != nil {
 				return nil, err
 			}
@@ -58,7 +58,7 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 	case "manager":
 		strategy = NewManagerBandwidthStrategy()
 	default:
-		strategy, err = CreateStrategy(options.Strategy, options.Mode, options.ConnectionType, options.Speed.Value())
+		strategy, err = CreateStrategy(options.Strategy, options.Mode, options.ConnectionType, options.Speed.Value(), options.FlowKeys)
 		if err != nil {
 			return nil, err
 		}
@@ -118,9 +118,11 @@ func (h *Outbound) ListenPacket(ctx context.Context, destination M.Socksaddr) (n
 }
 
 func (h *Outbound) NewConnectionEx(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
+	ctx = adapter.WithContext(ctx, &metadata)
 	conn, err := h.strategy.wrapConn(ctx, conn, &metadata, false)
 	if err != nil {
 		h.logger.ErrorContext(ctx, err)
+		N.CloseOnHandshakeFailure(conn, onClose, err)
 		return
 	}
 	metadata.Inbound = h.Tag()
@@ -130,9 +132,11 @@ func (h *Outbound) NewConnectionEx(ctx context.Context, conn net.Conn, metadata 
 }
 
 func (h *Outbound) NewPacketConnectionEx(ctx context.Context, conn N.PacketConn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
+	ctx = adapter.WithContext(ctx, &metadata)
 	packetConn, err := h.strategy.wrapPacketConn(ctx, bufio.NewNetPacketConn(conn), &metadata, false)
 	if err != nil {
 		h.logger.ErrorContext(ctx, err)
+		N.CloseOnHandshakeFailure(conn, onClose, err)
 		return
 	}
 	metadata.Inbound = h.Tag()

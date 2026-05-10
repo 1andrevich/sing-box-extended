@@ -4,24 +4,16 @@ package admin_panel
 
 import (
 	"context"
-	"database/sql"
+	"embed"
+	"encoding/json"
 	"errors"
+	"io/fs"
+	"mime"
 	"net/http"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/lib/pq"
-	"golang.org/x/net/http2"
-
-	_ "github.com/GoAdminGroup/go-admin/adapter/chi"
-	"github.com/GoAdminGroup/go-admin/engine"
-	"github.com/GoAdminGroup/go-admin/modules/config"
-	_ "github.com/GoAdminGroup/go-admin/modules/db/drivers/sqlite"
-	"github.com/GoAdminGroup/go-admin/plugins/admin/modules/table"
-	"github.com/GoAdminGroup/go-admin/template"
-	"github.com/GoAdminGroup/go-admin/template/chartjs"
-	_ "github.com/GoAdminGroup/themes/adminlte"
-	_ "github.com/GoAdminGroup/themes/sword"
+	"path"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/sagernet/sing-box/adapter"
 	boxService "github.com/sagernet/sing-box/adapter/service"
@@ -30,16 +22,44 @@ import (
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
-	"github.com/sagernet/sing-box/service/admin_panel/migration"
-	"github.com/sagernet/sing-box/service/admin_panel/pages"
-	"github.com/sagernet/sing-box/service/admin_panel/tables"
-	CM "github.com/sagernet/sing-box/service/manager/constant"
 	"github.com/sagernet/sing/common"
 	E "github.com/sagernet/sing/common/exceptions"
 	N "github.com/sagernet/sing/common/network"
 	aTLS "github.com/sagernet/sing/common/tls"
-	"github.com/sagernet/sing/service"
+	sHTTP "github.com/sagernet/sing/protocol/http"
+
+	"github.com/go-chi/chi/v5"
+	"golang.org/x/net/http2"
 )
+
+// distFS holds the SPA bytes produced by `npm run build` (Vite) and then
+// post-processed by `cmd/internal/admin_panel_pack`. The directory
+// is checked into the repo so a plain `go build -tags with_admin_panel`
+// produces a self-contained binary — no Node.js required at compile time.
+//
+// The post-processor:
+//   - deletes the legacy *.woff fonts (every browser since 2014 reads
+//     WOFF2 natively) and removes their references from the bundled CSS;
+//   - drops a gzip-compressed `*.gz` companion next to every compressible
+//     text asset (.html, .css, .js, …) using BestCompression. We pass
+//     those bytes through verbatim with Content-Encoding: gzip when the
+//     client advertises gzip, and fall back to the raw file otherwise.
+//
+//go:embed dist
+var distFS embed.FS
+
+// distRoot is the embed.FS rooted at `dist/`, so handlers can use plain
+// "index.html" / "assets/..." keys instead of the "dist/..." prefix.
+var distRoot = func() fs.FS {
+	sub, err := fs.Sub(distFS, "dist")
+	if err != nil {
+		// Cannot happen unless the //go:embed pattern above and the
+		// fs.Sub argument disagree; bail loudly so the mismatch is
+		// caught at startup.
+		panic(err)
+	}
+	return sub
+}()
 
 func RegisterService(registry *boxService.Registry) {
 	boxService.Register[option.AdminPanelServiceOptions](registry, C.TypeAdminPanel, NewService)
@@ -56,7 +76,7 @@ type Service struct {
 }
 
 func NewService(ctx context.Context, logger log.ContextLogger, tag string, options option.AdminPanelServiceOptions) (adapter.Service, error) {
-	s := &Service{
+	return &Service{
 		Adapter: boxService.NewAdapter(C.TypeAdminPanel, tag),
 		ctx:     ctx,
 		logger:  logger,
@@ -67,83 +87,15 @@ func NewService(ctx context.Context, logger log.ContextLogger, tag string, optio
 			Listen:  options.ListenOptions,
 		}),
 		options: options,
-	}
-	return s, nil
+	}, nil
 }
 
 func (s *Service) Start(stage adapter.StartStage) error {
 	if stage != adapter.StartStateStart {
 		return nil
 	}
-	boxManager := service.FromContext[adapter.ServiceManager](s.ctx)
-	service, ok := boxManager.Get(s.options.Manager)
-	if !ok {
-		return E.New("manager ", s.options.Manager, " not found")
-	}
-	manager, ok := service.(CM.Manager)
-	if !ok {
-		return E.New("invalid ", s.options.Manager, " manager")
-	}
-	switch s.options.Database.Driver {
-	case "postgresql":
-		db, err := sql.Open("postgres", s.options.Database.DSN)
-		if err != nil {
-			return err
-		}
-		defer db.Close()
-		if err := migration.MigratePostgreSQL(db); err != nil && err != migrate.ErrNoChange {
-			return err
-		}
-	default:
-		return E.New("unknown driver \"", s.options.Database.Driver, "\"")
-	}
-	var generators = map[string]table.Generator{
-		"squads": tables.SquadTableFactory(
-			manager,
-			s.logger,
-		),
-		"nodes": tables.NodeTableFactory(
-			manager,
-			s.logger,
-		),
-		"users": tables.UserTableFactory(
-			manager,
-			s.logger,
-		),
-		"connection_limiters": tables.ConnectionLimiterTableFactory(
-			manager,
-			s.logger,
-		),
-		"bandwidth_limiters": tables.BandwidthLimiterTableFactory(
-			manager,
-			s.logger,
-		),
-	}
-	eng := engine.Default()
 	chiRouter := chi.NewRouter()
-	template.AddComp(chartjs.NewChart())
-	if err := eng.AddConfig(&config.Config{
-		UrlPrefix: "admin",
-		IndexUrl:  "/",
-		LoginUrl:  "/login",
-		Databases: config.DatabaseList{
-			"default": config.Database{
-				Driver: s.options.Database.Driver,
-				Dsn:    s.options.Database.DSN,
-			},
-		},
-	}).
-		AddGenerators(generators).
-		Use(chiRouter); err != nil {
-		return err
-	}
-	eng.HTML("GET", "/admin", pages.DashboardPage)
-	chiRouter.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/admin", http.StatusMovedPermanently)
-	})
-	chiRouter.Get("/admin/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/admin", http.StatusMovedPermanently)
-	})
+	s.Route(chiRouter)
 	if s.options.TLS != nil {
 		tlsConfig, err := tls.NewServer(s.ctx, s.logger, common.PtrValueOrDefault(s.options.TLS))
 		if err != nil {
@@ -168,10 +120,14 @@ func (s *Service) Start(stage adapter.StartStage) error {
 		tcpListener = aTLS.NewListener(tcpListener, s.tlsConfig)
 	}
 	s.httpServer = &http.Server{
-		Handler: chiRouter,
+		Handler:           chiRouter,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       2 * time.Minute,
 	}
 	go func() {
-		err = s.httpServer.Serve(tcpListener)
+		err := s.httpServer.Serve(tcpListener)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			s.logger.Error("serve error: ", err)
 		}
@@ -180,9 +136,145 @@ func (s *Service) Start(stage adapter.StartStage) error {
 }
 
 func (s *Service) Close() error {
+	if s.httpServer != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = s.httpServer.Shutdown(ctx)
+	}
 	return common.Close(
-		common.PtrOrNil(s.httpServer),
 		common.PtrOrNil(s.listener),
 		s.tlsConfig,
 	)
+}
+
+func (s *Service) Route(r chi.Router) {
+	r.Use(func(handler http.Handler) http.Handler {
+		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			s.logger.Debug(request.Method, " ", request.RequestURI, " ", sHTTP.SourceAddress(request))
+			handler.ServeHTTP(writer, request)
+		})
+	})
+	r.Get("/version", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"version": C.Version,
+		})
+	})
+	handler := newSPAHandler()
+	r.Method(http.MethodGet, "/*", handler)
+	r.Method(http.MethodHead, "/*", handler)
+}
+
+func newSPAHandler() http.Handler {
+	_, hasIndex := readFile("index.html")
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reqPath := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
+		if reqPath != "" && reqPath != "index.html" {
+			if data, ok := readFile(reqPath); ok {
+				serveAsset(w, r, reqPath, data)
+				return
+			}
+		}
+		if !hasIndex {
+			http.Error(w, "admin panel not built", http.StatusInternalServerError)
+			return
+		}
+		serveIndex(w, r)
+	})
+}
+
+func readFile(name string) ([]byte, bool) {
+	data, err := fs.ReadFile(distRoot, name)
+	if err != nil {
+		return nil, false
+	}
+	return data, true
+}
+
+func gzipCompanion(name string) ([]byte, bool) {
+	return readFile(name + ".gz")
+}
+
+func serveAsset(w http.ResponseWriter, r *http.Request, name string, raw []byte) {
+	if ctype := contentType(name); ctype != "" {
+		w.Header().Set("Content-Type", ctype)
+	}
+	if isHashedAsset(name) {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	} else {
+		w.Header().Set("Cache-Control", "no-cache, must-revalidate")
+	}
+	writeBody(w, r, name, raw)
+}
+
+func serveIndex(w http.ResponseWriter, r *http.Request) {
+	raw, _ := readFile("index.html")
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+	writeBody(w, r, "index.html", raw)
+}
+
+func writeBody(w http.ResponseWriter, r *http.Request, name string, raw []byte) {
+	header := w.Header()
+	if gz, ok := gzipCompanion(name); ok {
+		// Even when we end up serving the raw bytes (because the client
+		// declined gzip), let any shared cache know the response varies
+		// by Accept-Encoding so it doesn't hand a gzipped payload to a
+		// non-gzip client.
+		header.Add("Vary", "Accept-Encoding")
+		if acceptsGzip(r) {
+			header.Set("Content-Encoding", "gzip")
+			header.Set("Content-Length", strconv.Itoa(len(gz)))
+			if r.Method == http.MethodHead {
+				return
+			}
+			_, _ = w.Write(gz)
+			return
+		}
+	}
+	header.Set("Content-Length", strconv.Itoa(len(raw)))
+	if r.Method == http.MethodHead {
+		return
+	}
+	_, _ = w.Write(raw)
+}
+
+func acceptsGzip(r *http.Request) bool {
+	for _, h := range r.Header.Values("Accept-Encoding") {
+		for _, part := range strings.Split(h, ",") {
+			tok := strings.TrimSpace(part)
+			if i := strings.IndexByte(tok, ';'); i >= 0 {
+				tok = strings.TrimSpace(tok[:i])
+			}
+			if strings.EqualFold(tok, "gzip") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func isHashedAsset(name string) bool {
+	return strings.HasPrefix(name, "assets/")
+}
+
+func contentType(name string) string {
+	ext := path.Ext(name)
+	if ct := mime.TypeByExtension(ext); ct != "" {
+		return ct
+	}
+	switch ext {
+	case ".js", ".mjs":
+		return "application/javascript; charset=utf-8"
+	case ".css":
+		return "text/css; charset=utf-8"
+	case ".html":
+		return "text/html; charset=utf-8"
+	case ".svg":
+		return "image/svg+xml"
+	}
+	return ""
 }

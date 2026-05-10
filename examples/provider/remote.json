@@ -1,0 +1,72 @@
+{
+  "log": {
+    "level": "info"
+  },
+  "dns": {
+    "servers": [
+      {
+        "type": "local",
+        "tag": "default"
+      }
+    ]
+  },
+  "inbounds": [
+    {
+      "type": "mixed",
+      "tag": "mixed-in",
+      "listen_port": 7897
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    // The "urltest" group below uses every outbound exposed by every
+    // registered provider thanks to "use_all_providers": true.
+    // The fastest member is selected based on the URL test result.
+    {
+      "type": "urltest",
+      "tag": "auto",
+      "outbounds": [
+        "direct"
+      ],
+      "use_all_providers": true,
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": "10m",
+      "tolerance": 50,
+      "interrupt_exist_connections": true
+    }
+  ],
+  "providers": [
+    {
+      "type": "remote",
+      "tag": "my-remote",
+      // Subscription URL. The response body can be any auto-detected
+      // format: sing-box JSON, Clash YAML, SIP008, base64-encoded
+      // shareable links, or plain link list.
+      "url": "https://example.com/subscription.txt",
+      "user_agent": "sing-box",
+      // Fetch the subscription through this outbound instead of the
+      // default route (useful when the subscription host is blocked).
+      "download_detour": "direct",
+      // Refresh interval. Minimum is 1 minute; default is 24h.
+      "update_interval": "12h",
+      // Optional regex filters applied after parsing the subscription.
+      // "exclude" wins over "include" when both match.
+      "exclude": "(?i)expire|流量|官网",
+      "include": "(?i)hk|jp|sg|us",
+      "health_check": {
+        "enabled": true,
+        "url": "https://www.gstatic.com/generate_204",
+        "interval": "5m",
+        "timeout": "5s"
+      }
+    }
+  ],
+  "route": {
+    "final": "auto",
+    "default_domain_resolver": "default",
+    "auto_detect_interface": true
+  }
+}

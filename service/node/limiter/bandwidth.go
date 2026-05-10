@@ -1,9 +1,11 @@
 package limiter
 
 import (
+	"context"
 	"sync"
 
 	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/protocol/limiter/bandwidth"
 	CM "github.com/sagernet/sing-box/service/manager/constant"
 	"github.com/sagernet/sing-box/service/node/constant"
@@ -15,14 +17,21 @@ type ManagedBandwidthStrategy interface {
 }
 
 type BandwidthLimiterManager struct {
+	ctx         context.Context
+	nodeManager CM.NodeManager
+	logger      log.ContextLogger
+
 	managers map[string]*BandwidthLimiterStrategyManager
 
 	mtx sync.Mutex
 }
 
-func NewBandwidthLimiterManager() *BandwidthLimiterManager {
+func NewBandwidthLimiterManager(ctx context.Context, nodeManager CM.NodeManager, logger log.ContextLogger) *BandwidthLimiterManager {
 	return &BandwidthLimiterManager{
-		managers: make(map[string]*BandwidthLimiterStrategyManager),
+		ctx:         ctx,
+		nodeManager: nodeManager,
+		logger:      logger,
+		managers:    make(map[string]*BandwidthLimiterStrategyManager),
 	}
 }
 
@@ -38,6 +47,7 @@ func (m *BandwidthLimiterManager) AddBandwidthLimiterStrategyManager(outbound ad
 		return E.New("strategy for outbound ", outbound.Tag(), " is not manager")
 	}
 	m.managers[outbound.Tag()] = &BandwidthLimiterStrategyManager{
+		manager:       m,
 		strategy:      strategy,
 		strategiesMap: make(map[string]bandwidth.BandwidthStrategy),
 	}
@@ -55,13 +65,14 @@ func (m *BandwidthLimiterManager) GetBandwidthLimiterStrategyManagerTags() []str
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 	tags := make([]string, 0, len(m.managers))
-	for tag, _ := range m.managers {
+	for tag := range m.managers {
 		tags = append(tags, tag)
 	}
 	return tags
 }
 
 type BandwidthLimiterStrategyManager struct {
+	manager       *BandwidthLimiterManager
 	strategy      ManagedBandwidthStrategy
 	strategiesMap map[string]bandwidth.BandwidthStrategy
 
@@ -75,8 +86,9 @@ func (i *BandwidthLimiterStrategyManager) postUpdate() {
 func (i *BandwidthLimiterStrategyManager) UpdateBandwidthLimiter(limiter CM.BandwidthLimiter) {
 	i.mtx.Lock()
 	defer i.mtx.Unlock()
-	strategy, err := bandwidth.CreateStrategy(limiter.Strategy, limiter.Mode, limiter.ConnectionType, limiter.RawSpeed)
+	strategy, err := bandwidth.CreateStrategy(limiter.Strategy, limiter.Mode, limiter.ConnectionType, limiter.RawSpeed, limiter.FlowKeys)
 	if err != nil {
+		i.manager.logger.ErrorContext(i.manager.ctx, err)
 		return
 	}
 	i.strategiesMap[limiter.Username] = strategy
@@ -89,9 +101,10 @@ func (i *BandwidthLimiterStrategyManager) UpdateBandwidthLimiters(limiters []CM.
 	clear(i.strategiesMap)
 	newStrategiesMap := make(map[string]bandwidth.BandwidthStrategy)
 	for _, limiter := range limiters {
-		strategy, err := bandwidth.CreateStrategy(limiter.Strategy, limiter.Mode, limiter.ConnectionType, limiter.RawSpeed)
+		strategy, err := bandwidth.CreateStrategy(limiter.Strategy, limiter.Mode, limiter.ConnectionType, limiter.RawSpeed, limiter.FlowKeys)
 		if err != nil {
-			return
+			i.manager.logger.ErrorContext(i.manager.ctx, err)
+			continue
 		}
 		newStrategiesMap[limiter.Username] = strategy
 	}

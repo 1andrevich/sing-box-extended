@@ -31,6 +31,8 @@
       "transport": "TCP",
       "username": "username",
       "password": "password",
+      // valid: MULTIPLEXING_DEFAULT / MULTIPLEXING_OFF / MULTIPLEXING_LOW
+      //        MULTIPLEXING_MIDDLE / MULTIPLEXING_HIGH
       "multiplexing": "MULTIPLEXING_LOW"
       // Dial Fields
     }

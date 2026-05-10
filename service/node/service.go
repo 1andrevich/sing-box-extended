@@ -28,6 +28,8 @@ type Service struct {
 	inboundManagers   map[string]constant.InboundManager
 	bandwidthManager  constant.BandwidthLimiterManager
 	connectionManager constant.ConnectionLimiterManager
+	trafficManager    constant.TrafficLimiterManager
+	rateManager       constant.RateLimiterManager
 	options           option.NodeServiceOptions
 
 	mtx sync.Mutex
@@ -60,13 +62,16 @@ func (s *Service) Start(stage adapter.StartStage) error {
 	s.inboundManagers = map[string]constant.InboundManager{
 		"hysteria":  inbound.NewHysteriaManager(),
 		"hysteria2": inbound.NewHysteria2Manager(),
+		"mtproxy":   inbound.NewMTProxyManager(),
 		"trojan":    inbound.NewTrojanManager(),
 		"tuic":      inbound.NewTUICManager(),
 		"vless":     inbound.NewVLESSManager(),
 		"vmess":     inbound.NewVMessManager(),
 	}
-	s.connectionManager = limiter.NewConnectionLimiterManager(nodeManager, s.logger)
-	s.bandwidthManager = limiter.NewBandwidthLimiterManager()
+	s.connectionManager = limiter.NewConnectionLimiterManager(s.ctx, nodeManager, s.logger)
+	s.bandwidthManager = limiter.NewBandwidthLimiterManager(s.ctx, nodeManager, s.logger)
+	s.trafficManager = limiter.NewTrafficLimiterManager(s.ctx, nodeManager, s.logger)
+	s.rateManager = limiter.NewRateLimiterManager(s.ctx, nodeManager, s.logger)
 	for _, tag := range s.options.Inbounds {
 		inbound, ok := inboundManager.Get(tag)
 		if !ok {
@@ -94,9 +99,29 @@ func (s *Service) Start(stage adapter.StartStage) error {
 	for _, limiter := range s.options.BandwidthLimiters {
 		outbound, ok := outboundManager.Outbound(limiter)
 		if !ok {
-			return E.New("outbound ", limiter, " not found")
+			return E.New("outbound " + limiter + " not found")
 		}
 		err := s.bandwidthManager.AddBandwidthLimiterStrategyManager(outbound)
+		if err != nil {
+			return err
+		}
+	}
+	for _, limiter := range s.options.TrafficLimiters {
+		outbound, ok := outboundManager.Outbound(limiter)
+		if !ok {
+			return E.New("outbound ", limiter, " not found")
+		}
+		err := s.trafficManager.AddTrafficLimiterStrategyManager(outbound)
+		if err != nil {
+			return err
+		}
+	}
+	for _, limiter := range s.options.RateLimiters {
+		outbound, ok := outboundManager.Outbound(limiter)
+		if !ok {
+			return E.New("outbound ", limiter, " not found")
+		}
+		err := s.rateManager.AddRateLimiterStrategyManager(outbound)
 		if err != nil {
 			return err
 		}
@@ -220,6 +245,70 @@ func (s *Service) DeleteBandwidthLimiter(limiter CM.BandwidthLimiter) {
 		return
 	}
 	manager.DeleteBandwidthLimiter(limiter.Username)
+}
+
+func (s *Service) UpdateTrafficLimiter(limiter CM.TrafficLimiter) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	manager, ok := s.trafficManager.GetTrafficLimiterStrategyManager(limiter.Outbound)
+	if !ok {
+		return
+	}
+	manager.UpdateTrafficLimiter(limiter)
+}
+
+func (s *Service) UpdateTrafficLimiters(limiters []CM.TrafficLimiter) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	for _, limiter := range limiters {
+		manager, ok := s.trafficManager.GetTrafficLimiterStrategyManager(limiter.Outbound)
+		if !ok {
+			continue
+		}
+		manager.UpdateTrafficLimiters(limiters)
+	}
+}
+
+func (s *Service) DeleteTrafficLimiter(limiter CM.TrafficLimiter) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	manager, ok := s.trafficManager.GetTrafficLimiterStrategyManager(limiter.Outbound)
+	if !ok {
+		return
+	}
+	manager.DeleteTrafficLimiter(limiter.Username)
+}
+
+func (s *Service) UpdateRateLimiter(limiter CM.RateLimiter) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	manager, ok := s.rateManager.GetRateLimiterStrategyManager(limiter.Outbound)
+	if !ok {
+		return
+	}
+	manager.UpdateRateLimiter(limiter)
+}
+
+func (s *Service) UpdateRateLimiters(limiters []CM.RateLimiter) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	for _, limiter := range limiters {
+		manager, ok := s.rateManager.GetRateLimiterStrategyManager(limiter.Outbound)
+		if !ok {
+			continue
+		}
+		manager.UpdateRateLimiters(limiters)
+	}
+}
+
+func (s *Service) DeleteRateLimiter(limiter CM.RateLimiter) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	manager, ok := s.rateManager.GetRateLimiterStrategyManager(limiter.Outbound)
+	if !ok {
+		return
+	}
+	manager.DeleteRateLimiter(limiter.Username)
 }
 
 func (s *Service) IsLocal() bool {

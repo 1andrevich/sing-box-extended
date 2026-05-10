@@ -10,7 +10,6 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofrs/uuid/v5"
-	"github.com/patrickmn/go-cache/v2"
 	"github.com/sagernet/sing-box/adapter"
 	boxService "github.com/sagernet/sing-box/adapter/service"
 	C "github.com/sagernet/sing-box/constant"
@@ -18,7 +17,9 @@ import (
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing-box/service/manager/constant"
 	"github.com/sagernet/sing-box/service/manager/repository/postgresql"
+	"github.com/sagernet/sing-box/service/manager/repository/sqlite"
 	E "github.com/sagernet/sing/common/exceptions"
+	"github.com/shtorm-7/go-cache/v2"
 )
 
 func RegisterService(registry *boxService.Registry) {
@@ -33,12 +34,13 @@ type Service struct {
 	nodes      map[string]constant.ConnectedNode
 
 	limiterLocks map[int]map[string]*cache.Cache[string, struct{}]
+	trafficUsage map[int]*TrafficUsage
 
-	userValidator    *validator.Validate
 	defaultValidator *validator.Validate
 
 	mtx         sync.RWMutex
 	connLockMtx sync.Mutex
+	trafficMtx  sync.Mutex
 }
 
 func NewService(ctx context.Context, logger log.ContextLogger, tag string, options option.ManagerServiceOptions) (adapter.Service, error) {
@@ -50,11 +52,16 @@ func NewService(ctx context.Context, logger log.ContextLogger, tag string, optio
 		if err != nil {
 			return nil, err
 		}
+	case "sqlite":
+		repository, err = sqlite.NewSQLiteRepository(ctx, options.Database.DSN)
+		if err != nil {
+			return nil, err
+		}
 	default:
 		return nil, E.New("unknown driver \"", options.Database.Driver, "\"")
 	}
-	userValidator := validator.New()
-	userValidator.RegisterStructValidation(func(sl validator.StructLevel) {
+	defaultValidator := validator.New()
+	defaultValidator.RegisterStructValidation(func(sl validator.StructLevel) {
 		user := sl.Current().Interface().(constant.UserCreate)
 		switch user.Type {
 		case "vless":
@@ -85,16 +92,41 @@ func NewService(ctx context.Context, logger log.ContextLogger, tag string, optio
 			}
 		}
 	}, constant.UserCreate{})
-	return &Service{
+	validateRateLimiterInterval := func(sl validator.StructLevel, interval string) {
+		if interval == "" {
+			return
+		}
+		if _, err := time.ParseDuration(interval); err != nil {
+			sl.ReportError(interval, "interval", "Interval", "duration", "")
+		}
+	}
+	defaultValidator.RegisterStructValidation(func(sl validator.StructLevel) {
+		validateRateLimiterInterval(sl, sl.Current().Interface().(constant.RateLimiterCreate).Interval)
+	}, constant.RateLimiterCreate{})
+	defaultValidator.RegisterStructValidation(func(sl validator.StructLevel) {
+		validateRateLimiterInterval(sl, sl.Current().Interface().(constant.RateLimiterUpdate).Interval)
+	}, constant.RateLimiterUpdate{})
+	service := &Service{
 		Adapter:          boxService.NewAdapter(C.TypeManager, tag),
 		ctx:              ctx,
 		logger:           logger,
 		repository:       repository,
 		nodes:            make(map[string]constant.ConnectedNode, 0),
 		limiterLocks:     make(map[int]map[string]*cache.Cache[string, struct{}]),
-		userValidator:    userValidator,
-		defaultValidator: validator.New(),
-	}, nil
+		trafficUsage:     make(map[int]*TrafficUsage),
+		defaultValidator: defaultValidator,
+	}
+	limiters, err := service.repository.GetTrafficLimiters(map[string][]string{})
+	if err != nil {
+		return nil, err
+	}
+	for _, limiter := range limiters {
+		service.trafficUsage[limiter.ID] = &TrafficUsage{
+			used:  limiter.RawUsed,
+			quota: limiter.RawQuota,
+		}
+	}
+	return service, nil
 }
 
 func (s *Service) CreateSquad(node constant.SquadCreate) (constant.Squad, error) {
@@ -139,12 +171,70 @@ func (s *Service) UpdateSquad(id int, squad constant.SquadUpdate) (constant.Squa
 
 func (s *Service) DeleteSquad(id int) (constant.Squad, error) {
 	s.mtx.Lock()
+	s.trafficMtx.Lock()
+	s.connLockMtx.Lock()
 	defer s.mtx.Unlock()
-	deletedSquad, err := s.repository.DeleteSquad(id)
+	defer s.trafficMtx.Unlock()
+	defer s.connLockMtx.Unlock()
+	deleted, err := s.repository.DeleteSquad(id)
 	if err != nil {
-		return deletedSquad, err
+		return deleted.Squad, err
 	}
-	return deletedSquad, nil
+	for _, uuid := range deleted.OrphanedNodeUUIDs {
+		if connectedNode, ok := s.nodes[uuid]; ok {
+			connectedNode.Close()
+			delete(s.nodes, uuid)
+		}
+	}
+	for _, lid := range deleted.OrphanedTrafficLimiterIDs {
+		delete(s.trafficUsage, lid)
+	}
+	for _, lid := range deleted.OrphanedConnectionLimiterIDs {
+		delete(s.limiterLocks, lid)
+	}
+	for _, uuid := range deleted.SurvivingNodeUUIDs {
+		connectedNode, ok := s.nodes[uuid]
+		if !ok {
+			continue
+		}
+		node, err := s.repository.GetNode(uuid)
+		if err != nil {
+			s.closeAllNodes()
+			return deleted.Squad, err
+		}
+		squadIDs := convertIntSliceToStringSlice(node.SquadIDs)
+		users, err := s.repository.GetUsers(map[string][]string{"squad_id_in": squadIDs})
+		if err != nil {
+			s.closeAllNodes()
+			return deleted.Squad, err
+		}
+		connectedNode.UpdateUsers(users)
+		bandwidthLimiters, err := s.repository.GetBandwidthLimiters(map[string][]string{"squad_id_in": squadIDs})
+		if err != nil {
+			s.closeAllNodes()
+			return deleted.Squad, err
+		}
+		connectedNode.UpdateBandwidthLimiters(bandwidthLimiters)
+		trafficLimiters, err := s.repository.GetTrafficLimiters(map[string][]string{"squad_id_in": squadIDs})
+		if err != nil {
+			s.closeAllNodes()
+			return deleted.Squad, err
+		}
+		connectedNode.UpdateTrafficLimiters(trafficLimiters)
+		connectionLimiters, err := s.repository.GetConnectionLimiters(map[string][]string{"squad_id_in": squadIDs})
+		if err != nil {
+			s.closeAllNodes()
+			return deleted.Squad, err
+		}
+		connectedNode.UpdateConnectionLimiters(connectionLimiters)
+		rateLimiters, err := s.repository.GetRateLimiters(map[string][]string{"squad_id_in": squadIDs})
+		if err != nil {
+			s.closeAllNodes()
+			return deleted.Squad, err
+		}
+		connectedNode.UpdateRateLimiters(rateLimiters)
+	}
+	return deleted.Squad, nil
 }
 
 func (s *Service) CreateNode(node constant.NodeCreate) (constant.Node, error) {
@@ -173,14 +263,14 @@ func (s *Service) GetNode(uuid string) (constant.Node, error) {
 	return s.repository.GetNode(uuid)
 }
 
-func (s *Service) GetNodeStatus(uuid string) string {
+func (s *Service) GetNodeStatus(uuid string) (string, error) {
 	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 	node, ok := s.nodes[uuid]
 	if !ok || !node.IsOnline() {
-		return "offline"
+		return "offline", nil
 	}
-	return "online"
+	return "online", nil
 }
 
 func (s *Service) UpdateNode(uuid string, node constant.NodeUpdate) (constant.Node, error) {
@@ -215,7 +305,7 @@ func (s *Service) DeleteNode(uuid string) (constant.Node, error) {
 func (s *Service) CreateUser(user constant.UserCreate) (constant.User, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
-	err := s.userValidator.Struct(user)
+	err := s.defaultValidator.Struct(user)
 	if err != nil {
 		return constant.User{}, err
 	}
@@ -292,6 +382,221 @@ func (s *Service) DeleteUser(id int) (constant.User, error) {
 		}
 	}
 	return deletedUser, nil
+}
+
+func (s *Service) CreateBandwidthLimiter(limiter constant.BandwidthLimiterCreate) (constant.BandwidthLimiter, error) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	err := s.defaultValidator.Struct(limiter)
+	if err != nil {
+		return constant.BandwidthLimiter{}, err
+	}
+	createdLimiter, err := s.repository.CreateBandwidthLimiter(limiter)
+	if err != nil {
+		return createdLimiter, err
+	}
+	nodes, err := s.repository.GetNodes(map[string][]string{
+		"squad_id_in": convertIntSliceToStringSlice(createdLimiter.SquadIDs),
+	})
+	if err != nil {
+		s.closeAllNodes()
+		return createdLimiter, err
+	}
+	for _, node := range nodes {
+		if node, ok := s.nodes[node.UUID]; ok {
+			node.UpdateBandwidthLimiter(createdLimiter)
+		}
+	}
+	return createdLimiter, nil
+}
+
+func (s *Service) GetBandwidthLimiters(filters map[string][]string) ([]constant.BandwidthLimiter, error) {
+	return s.repository.GetBandwidthLimiters(filters)
+}
+
+func (s *Service) GetBandwidthLimitersCount(filters map[string][]string) (int, error) {
+	return s.repository.GetBandwidthLimitersCount(filters)
+}
+
+func (s *Service) GetBandwidthLimiter(id int) (constant.BandwidthLimiter, error) {
+	return s.repository.GetBandwidthLimiter(id)
+}
+
+func (s *Service) UpdateBandwidthLimiter(id int, limiter constant.BandwidthLimiterUpdate) (constant.BandwidthLimiter, error) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	err := s.defaultValidator.Struct(limiter)
+	if err != nil {
+		return constant.BandwidthLimiter{}, err
+	}
+	updatedLimiter, err := s.repository.UpdateBandwidthLimiter(id, limiter)
+	if err != nil {
+		return updatedLimiter, err
+	}
+	nodes, err := s.repository.GetNodes(map[string][]string{
+		"squad_id_in": convertIntSliceToStringSlice(updatedLimiter.SquadIDs),
+	})
+	if err != nil {
+		s.closeAllNodes()
+		return updatedLimiter, err
+	}
+	for _, node := range nodes {
+		if node, ok := s.nodes[node.UUID]; ok {
+			node.UpdateBandwidthLimiter(updatedLimiter)
+		}
+	}
+	return updatedLimiter, nil
+}
+
+func (s *Service) DeleteBandwidthLimiter(id int) (constant.BandwidthLimiter, error) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	deletedLimiter, err := s.repository.DeleteBandwidthLimiter(id)
+	if err != nil {
+		return deletedLimiter, err
+	}
+	nodes, err := s.repository.GetNodes(map[string][]string{
+		"squad_id_in": convertIntSliceToStringSlice(deletedLimiter.SquadIDs),
+	})
+	if err != nil {
+		s.closeAllNodes()
+		return deletedLimiter, err
+	}
+	for _, node := range nodes {
+		if node, ok := s.nodes[node.UUID]; ok {
+			node.DeleteBandwidthLimiter(deletedLimiter)
+		}
+	}
+	return deletedLimiter, nil
+}
+
+func (s *Service) CreateTrafficLimiter(limiter constant.TrafficLimiterCreate) (constant.TrafficLimiter, error) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	err := s.defaultValidator.Struct(limiter)
+	if err != nil {
+		return constant.TrafficLimiter{}, err
+	}
+	createdLimiter, err := s.repository.CreateTrafficLimiter(limiter)
+	if err != nil {
+		return createdLimiter, err
+	}
+	s.trafficMtx.Lock()
+	s.trafficUsage[createdLimiter.ID] = &TrafficUsage{
+		used:  createdLimiter.RawUsed,
+		quota: createdLimiter.RawQuota,
+	}
+	s.trafficMtx.Unlock()
+	nodes, err := s.repository.GetNodes(map[string][]string{
+		"squad_id_in": convertIntSliceToStringSlice(createdLimiter.SquadIDs),
+	})
+	if err != nil {
+		s.closeAllNodes()
+		return createdLimiter, err
+	}
+	for _, node := range nodes {
+		if node, ok := s.nodes[node.UUID]; ok {
+			node.UpdateTrafficLimiter(createdLimiter)
+		}
+	}
+	return createdLimiter, nil
+}
+
+func (s *Service) GetTrafficLimiters(filters map[string][]string) ([]constant.TrafficLimiter, error) {
+	return s.repository.GetTrafficLimiters(filters)
+}
+
+func (s *Service) GetTrafficLimitersCount(filters map[string][]string) (int, error) {
+	return s.repository.GetTrafficLimitersCount(filters)
+}
+
+func (s *Service) GetTrafficLimiter(id int) (constant.TrafficLimiter, error) {
+	return s.repository.GetTrafficLimiter(id)
+}
+
+func (s *Service) UpdateTrafficLimiter(id int, limiter constant.TrafficLimiterUpdate) (constant.TrafficLimiter, error) {
+	s.mtx.Lock()
+	s.trafficMtx.Lock()
+	defer s.mtx.Unlock()
+	defer s.trafficMtx.Unlock()
+	err := s.defaultValidator.Struct(limiter)
+	if err != nil {
+		return constant.TrafficLimiter{}, err
+	}
+	updatedLimiter, err := s.repository.UpdateTrafficLimiter(id, limiter)
+	if err != nil {
+		return updatedLimiter, err
+	}
+	s.trafficUsage[updatedLimiter.ID] = &TrafficUsage{
+		used:  updatedLimiter.RawUsed,
+		quota: updatedLimiter.RawQuota,
+	}
+	nodes, err := s.repository.GetNodes(map[string][]string{
+		"squad_id_in": convertIntSliceToStringSlice(updatedLimiter.SquadIDs),
+	})
+	if err != nil {
+		s.closeAllNodes()
+		return updatedLimiter, err
+	}
+	for _, node := range nodes {
+		if node, ok := s.nodes[node.UUID]; ok {
+			node.UpdateTrafficLimiter(updatedLimiter)
+		}
+	}
+	return updatedLimiter, nil
+}
+
+func (s *Service) UpdateTrafficLimiterUsed(id int, used uint64) (constant.TrafficLimiter, error) {
+	s.mtx.Lock()
+	s.trafficMtx.Lock()
+	defer s.mtx.Unlock()
+	defer s.trafficMtx.Unlock()
+	updatedLimiter, err := s.repository.UpdateTrafficLimiterUsed(id, used)
+	if err != nil {
+		return updatedLimiter, err
+	}
+	s.trafficUsage[updatedLimiter.ID] = &TrafficUsage{
+		used:  updatedLimiter.RawUsed,
+		quota: updatedLimiter.RawQuota,
+	}
+	nodes, err := s.repository.GetNodes(map[string][]string{
+		"squad_id_in": convertIntSliceToStringSlice(updatedLimiter.SquadIDs),
+	})
+	if err != nil {
+		s.closeAllNodes()
+		return updatedLimiter, err
+	}
+	for _, node := range nodes {
+		if node, ok := s.nodes[node.UUID]; ok {
+			node.UpdateTrafficLimiter(updatedLimiter)
+		}
+	}
+	return updatedLimiter, nil
+}
+
+func (s *Service) DeleteTrafficLimiter(id int) (constant.TrafficLimiter, error) {
+	s.mtx.Lock()
+	s.trafficMtx.Lock()
+	defer s.mtx.Unlock()
+	defer s.trafficMtx.Unlock()
+	deletedLimiter, err := s.repository.DeleteTrafficLimiter(id)
+	if err != nil {
+		return deletedLimiter, err
+	}
+	delete(s.trafficUsage, deletedLimiter.ID)
+	nodes, err := s.repository.GetNodes(map[string][]string{
+		"squad_id_in": convertIntSliceToStringSlice(deletedLimiter.SquadIDs),
+	})
+	if err != nil {
+		s.closeAllNodes()
+		return deletedLimiter, err
+	}
+	for _, node := range nodes {
+		if node, ok := s.nodes[node.UUID]; ok {
+			node.DeleteTrafficLimiter(deletedLimiter)
+		}
+	}
+	return deletedLimiter, nil
 }
 
 func (s *Service) CreateConnectionLimiter(limiter constant.ConnectionLimiterCreate) (constant.ConnectionLimiter, error) {
@@ -390,14 +695,14 @@ func (s *Service) DeleteConnectionLimiter(id int) (constant.ConnectionLimiter, e
 	return deletedLimiter, nil
 }
 
-func (s *Service) CreateBandwidthLimiter(limiter constant.BandwidthLimiterCreate) (constant.BandwidthLimiter, error) {
+func (s *Service) CreateRateLimiter(limiter constant.RateLimiterCreate) (constant.RateLimiter, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	err := s.defaultValidator.Struct(limiter)
 	if err != nil {
-		return constant.BandwidthLimiter{}, err
+		return constant.RateLimiter{}, err
 	}
-	createdLimiter, err := s.repository.CreateBandwidthLimiter(limiter)
+	createdLimiter, err := s.repository.CreateRateLimiter(limiter)
 	if err != nil {
 		return createdLimiter, err
 	}
@@ -410,32 +715,32 @@ func (s *Service) CreateBandwidthLimiter(limiter constant.BandwidthLimiterCreate
 	}
 	for _, node := range nodes {
 		if node, ok := s.nodes[node.UUID]; ok {
-			node.UpdateBandwidthLimiter(createdLimiter)
+			node.UpdateRateLimiter(createdLimiter)
 		}
 	}
 	return createdLimiter, nil
 }
 
-func (s *Service) GetBandwidthLimiters(filters map[string][]string) ([]constant.BandwidthLimiter, error) {
-	return s.repository.GetBandwidthLimiters(filters)
+func (s *Service) GetRateLimiters(filters map[string][]string) ([]constant.RateLimiter, error) {
+	return s.repository.GetRateLimiters(filters)
 }
 
-func (s *Service) GetBandwidthLimitersCount(filters map[string][]string) (int, error) {
-	return s.repository.GetBandwidthLimitersCount(filters)
+func (s *Service) GetRateLimitersCount(filters map[string][]string) (int, error) {
+	return s.repository.GetRateLimitersCount(filters)
 }
 
-func (s *Service) GetBandwidthLimiter(id int) (constant.BandwidthLimiter, error) {
-	return s.repository.GetBandwidthLimiter(id)
+func (s *Service) GetRateLimiter(id int) (constant.RateLimiter, error) {
+	return s.repository.GetRateLimiter(id)
 }
 
-func (s *Service) UpdateBandwidthLimiter(id int, limiter constant.BandwidthLimiterUpdate) (constant.BandwidthLimiter, error) {
+func (s *Service) UpdateRateLimiter(id int, limiter constant.RateLimiterUpdate) (constant.RateLimiter, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	err := s.defaultValidator.Struct(limiter)
 	if err != nil {
-		return constant.BandwidthLimiter{}, err
+		return constant.RateLimiter{}, err
 	}
-	updatedLimiter, err := s.repository.UpdateBandwidthLimiter(id, limiter)
+	updatedLimiter, err := s.repository.UpdateRateLimiter(id, limiter)
 	if err != nil {
 		return updatedLimiter, err
 	}
@@ -448,16 +753,16 @@ func (s *Service) UpdateBandwidthLimiter(id int, limiter constant.BandwidthLimit
 	}
 	for _, node := range nodes {
 		if node, ok := s.nodes[node.UUID]; ok {
-			node.UpdateBandwidthLimiter(updatedLimiter)
+			node.UpdateRateLimiter(updatedLimiter)
 		}
 	}
 	return updatedLimiter, nil
 }
 
-func (s *Service) DeleteBandwidthLimiter(id int) (constant.BandwidthLimiter, error) {
+func (s *Service) DeleteRateLimiter(id int) (constant.RateLimiter, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
-	deletedLimiter, err := s.repository.DeleteBandwidthLimiter(id)
+	deletedLimiter, err := s.repository.DeleteRateLimiter(id)
 	if err != nil {
 		return deletedLimiter, err
 	}
@@ -470,7 +775,7 @@ func (s *Service) DeleteBandwidthLimiter(id int) (constant.BandwidthLimiter, err
 	}
 	for _, node := range nodes {
 		if node, ok := s.nodes[node.UUID]; ok {
-			node.DeleteBandwidthLimiter(deletedLimiter)
+			node.DeleteRateLimiter(deletedLimiter)
 		}
 	}
 	return deletedLimiter, nil
@@ -500,6 +805,13 @@ func (s *Service) AddNode(uuid string, node constant.ConnectedNode) error {
 		return err
 	}
 	node.UpdateBandwidthLimiters(bandwidthLimiters)
+	trafficLimiters, err := s.repository.GetTrafficLimiters(map[string][]string{
+		"squad_id_in": squadIDs,
+	})
+	if err != nil {
+		return err
+	}
+	node.UpdateTrafficLimiters(trafficLimiters)
 	connectionLimiters, err := s.repository.GetConnectionLimiters(map[string][]string{
 		"squad_id_in": squadIDs,
 	})
@@ -507,6 +819,13 @@ func (s *Service) AddNode(uuid string, node constant.ConnectedNode) error {
 		return err
 	}
 	node.UpdateConnectionLimiters(connectionLimiters)
+	rateLimiters, err := s.repository.GetRateLimiters(map[string][]string{
+		"squad_id_in": squadIDs,
+	})
+	if err != nil {
+		return err
+	}
+	node.UpdateRateLimiters(rateLimiters)
 	s.nodes[uuid] = node
 	return nil
 }
@@ -579,12 +898,36 @@ func (s *Service) ReleaseLock(limiterId int, id string, handleId string) error {
 	return nil
 }
 
+func (s *Service) AddTrafficUsage(limiterId int, n uint64) (uint64, error) {
+	s.trafficMtx.Lock()
+	defer s.trafficMtx.Unlock()
+	trafficStat, ok := s.trafficUsage[limiterId]
+	if !ok {
+		return 0, E.New("limiter not found")
+	}
+	trafficStat.used = trafficStat.used + n
+	if trafficStat.used > trafficStat.quota {
+		trafficStat.used = trafficStat.quota
+	}
+	updatedLimiter, err := s.repository.UpdateTrafficLimiterUsed(limiterId, trafficStat.used)
+	if err != nil {
+		return 0, err
+	}
+	trafficStat.used = updatedLimiter.RawUsed
+	return trafficStat.used, nil
+}
+
 func (s *Service) Start(stage adapter.StartStage) error {
 	return nil
 }
 
 func (s *Service) Close() error {
 	return nil
+}
+
+type TrafficUsage struct {
+	used  uint64
+	quota uint64
 }
 
 func (s *Service) closeAllNodes() {

@@ -3,8 +3,6 @@ package bandwidth
 import (
 	"context"
 	"net"
-
-	"golang.org/x/time/rate"
 )
 
 type connWithDownloadBandwidthLimiter struct {
@@ -13,7 +11,7 @@ type connWithDownloadBandwidthLimiter struct {
 	limiter Limiter
 }
 
-func NewConnWithDownloadBandwidthLimiter(ctx context.Context, conn net.Conn, limiter *rate.Limiter) *connWithDownloadBandwidthLimiter {
+func NewConnWithDownloadBandwidthLimiter(ctx context.Context, conn net.Conn, limiter Limiter) *connWithDownloadBandwidthLimiter {
 	return &connWithDownloadBandwidthLimiter{conn, ctx, limiter}
 }
 
@@ -28,12 +26,11 @@ func (conn *connWithDownloadBandwidthLimiter) Write(p []byte) (n int, err error)
 type connWithUploadBandwidthLimiter struct {
 	net.Conn
 	ctx     context.Context
-	limiter *rate.Limiter
-	burst   int
+	limiter Limiter
 }
 
-func NewConnWithUploadBandwidthLimiter(ctx context.Context, conn net.Conn, limiter *rate.Limiter) *connWithUploadBandwidthLimiter {
-	return &connWithUploadBandwidthLimiter{conn, ctx, limiter, limiter.Burst()}
+func NewConnWithUploadBandwidthLimiter(ctx context.Context, conn net.Conn, limiter Limiter) *connWithUploadBandwidthLimiter {
+	return &connWithUploadBandwidthLimiter{conn, ctx, limiter}
 }
 
 func (conn *connWithUploadBandwidthLimiter) Read(p []byte) (n int, err error) {
@@ -65,12 +62,11 @@ func (conn *connWithCloseHandler) Close() error {
 type packetConnWithDownloadBandwidthLimiter struct {
 	net.PacketConn
 	ctx     context.Context
-	limiter *rate.Limiter
-	burst   int
+	limiter Limiter
 }
 
-func NewPacketConnWithDownloadBandwidthLimiter(ctx context.Context, conn net.PacketConn, limiter *rate.Limiter) *packetConnWithDownloadBandwidthLimiter {
-	return &packetConnWithDownloadBandwidthLimiter{conn, ctx, limiter, limiter.Burst()}
+func NewPacketConnWithDownloadBandwidthLimiter(ctx context.Context, conn net.PacketConn, limiter Limiter) *packetConnWithDownloadBandwidthLimiter {
+	return &packetConnWithDownloadBandwidthLimiter{conn, ctx, limiter}
 }
 
 func (conn *packetConnWithDownloadBandwidthLimiter) WriteTo(p []byte, addr net.Addr) (n int, err error) {
@@ -85,11 +81,10 @@ type packetConnWithUploadBandwidthLimiter struct {
 	net.PacketConn
 	ctx     context.Context
 	limiter Limiter
-	burst   int
 }
 
-func NewPacketConnWithUploadBandwidthLimiter(ctx context.Context, conn net.PacketConn, limiter *rate.Limiter) *packetConnWithUploadBandwidthLimiter {
-	return &packetConnWithUploadBandwidthLimiter{conn, ctx, limiter, limiter.Burst()}
+func NewPacketConnWithUploadBandwidthLimiter(ctx context.Context, conn net.PacketConn, limiter Limiter) *packetConnWithUploadBandwidthLimiter {
+	return &packetConnWithUploadBandwidthLimiter{conn, ctx, limiter}
 }
 
 func (conn *packetConnWithUploadBandwidthLimiter) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
@@ -116,4 +111,40 @@ func NewPacketConnWithCloseHandler(conn net.PacketConn, onClose CloseHandlerFunc
 func (conn *packetConnWithCloseHandler) Close() error {
 	conn.onClose()
 	return conn.PacketConn.Close()
+}
+
+func connWithDownloadBandwidthWrapper(ctx context.Context, conn net.Conn, limiter Limiter, reverse bool) net.Conn {
+	if reverse {
+		return NewConnWithUploadBandwidthLimiter(ctx, conn, limiter)
+	}
+	return NewConnWithDownloadBandwidthLimiter(ctx, conn, limiter)
+}
+
+func connWithUploadBandwidthWrapper(ctx context.Context, conn net.Conn, limiter Limiter, reverse bool) net.Conn {
+	if reverse {
+		return NewConnWithDownloadBandwidthLimiter(ctx, conn, limiter)
+	}
+	return NewConnWithUploadBandwidthLimiter(ctx, conn, limiter)
+}
+
+func connWithBidirectionalBandwidthWrapper(ctx context.Context, conn net.Conn, limiter Limiter, reverse bool) net.Conn {
+	return NewConnWithUploadBandwidthLimiter(ctx, NewConnWithDownloadBandwidthLimiter(ctx, conn, limiter), limiter)
+}
+
+func packetConnWithDownloadBandwidthWrapper(ctx context.Context, conn net.PacketConn, limiter Limiter, reverse bool) net.PacketConn {
+	if reverse {
+		return NewPacketConnWithUploadBandwidthLimiter(ctx, conn, limiter)
+	}
+	return NewPacketConnWithDownloadBandwidthLimiter(ctx, conn, limiter)
+}
+
+func packetConnWithUploadBandwidthWrapper(ctx context.Context, conn net.PacketConn, limiter Limiter, reverse bool) net.PacketConn {
+	if reverse {
+		return NewPacketConnWithDownloadBandwidthLimiter(ctx, conn, limiter)
+	}
+	return NewPacketConnWithUploadBandwidthLimiter(ctx, conn, limiter)
+}
+
+func packetConnWithBidirectionalBandwidthWrapper(ctx context.Context, conn net.PacketConn, limiter Limiter, reverse bool) net.PacketConn {
+	return NewPacketConnWithUploadBandwidthLimiter(ctx, NewPacketConnWithDownloadBandwidthLimiter(ctx, conn, limiter), limiter)
 }

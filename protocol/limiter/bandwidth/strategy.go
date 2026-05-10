@@ -15,8 +15,8 @@ import (
 type (
 	CloseHandlerFunc  = func()
 	ConnIDGetter      = func(context.Context, *adapter.InboundContext) (string, bool)
-	ConnWrapper       = func(ctx context.Context, conn net.Conn, limiter *rate.Limiter, reverse bool) net.Conn
-	PacketConnWrapper = func(ctx context.Context, conn net.PacketConn, limiter *rate.Limiter, reverse bool) net.PacketConn
+	ConnWrapper       = func(ctx context.Context, conn net.Conn, limiter Limiter, reverse bool) net.Conn
+	PacketConnWrapper = func(ctx context.Context, conn net.PacketConn, limiter Limiter, reverse bool) net.PacketConn
 )
 
 type BandwidthStrategy interface {
@@ -25,7 +25,7 @@ type BandwidthStrategy interface {
 }
 
 type BandwidthLimiterStrategy interface {
-	getLimiter(ctx context.Context, metadata *adapter.InboundContext) (*rate.Limiter, CloseHandlerFunc, error)
+	getLimiter(ctx context.Context, metadata *adapter.InboundContext) (Limiter, CloseHandlerFunc, error)
 }
 
 type DefaultWrapStrategy struct {
@@ -55,21 +55,25 @@ func (s *DefaultWrapStrategy) wrapPacketConn(ctx context.Context, conn net.Packe
 }
 
 type GlobalBandwidthStrategy struct {
-	limiter *rate.Limiter
+	limiter Limiter
 }
 
-func NewGlobalBandwidthStrategy(speed uint64) *GlobalBandwidthStrategy {
-	return &GlobalBandwidthStrategy{
-		limiter: createSpeedLimiter(speed),
+func NewGlobalBandwidthStrategy(speed uint64, flowKeys []string) (*GlobalBandwidthStrategy, error) {
+	limiter, err := createSpeedLimiter(speed, flowKeys)
+	if err != nil {
+		return nil, err
 	}
+	return &GlobalBandwidthStrategy{
+		limiter: limiter,
+	}, nil
 }
 
-func (s *GlobalBandwidthStrategy) getLimiter(ctx context.Context, metadata *adapter.InboundContext) (*rate.Limiter, CloseHandlerFunc, error) {
+func (s *GlobalBandwidthStrategy) getLimiter(ctx context.Context, metadata *adapter.InboundContext) (Limiter, CloseHandlerFunc, error) {
 	return s.limiter, func() {}, nil
 }
 
 type idBandwidthLimiter struct {
-	limiter *rate.Limiter
+	limiter Limiter
 	handles uint32
 }
 
@@ -77,18 +81,20 @@ type ConnectionBandwidthStrategy struct {
 	limiters     map[string]*idBandwidthLimiter
 	connIDGetter ConnIDGetter
 	speed        uint64
+	flowKeys     []string
 	mtx          sync.Mutex
 }
 
-func NewConnectionBandwidthStrategy(connIDGetter ConnIDGetter, speed uint64) *ConnectionBandwidthStrategy {
+func NewConnectionBandwidthStrategy(connIDGetter ConnIDGetter, speed uint64, flowKeys []string) *ConnectionBandwidthStrategy {
 	return &ConnectionBandwidthStrategy{
 		limiters:     make(map[string]*idBandwidthLimiter),
 		connIDGetter: connIDGetter,
 		speed:        speed,
+		flowKeys:     flowKeys,
 	}
 }
 
-func (s *ConnectionBandwidthStrategy) getLimiter(ctx context.Context, metadata *adapter.InboundContext) (*rate.Limiter, CloseHandlerFunc, error) {
+func (s *ConnectionBandwidthStrategy) getLimiter(ctx context.Context, metadata *adapter.InboundContext) (Limiter, CloseHandlerFunc, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	id, ok := s.connIDGetter(ctx, metadata)
@@ -97,8 +103,12 @@ func (s *ConnectionBandwidthStrategy) getLimiter(ctx context.Context, metadata *
 	}
 	limiter, ok := s.limiters[id]
 	if !ok {
+		newLimiter, err := createSpeedLimiter(s.speed, s.flowKeys)
+		if err != nil {
+			return nil, nil, err
+		}
 		limiter = &idBandwidthLimiter{
-			limiter: createSpeedLimiter(s.speed),
+			limiter: newLimiter,
 		}
 		s.limiters[id] = limiter
 	}
@@ -173,14 +183,37 @@ func (s *ManagerBandwidthStrategy) UpdateStrategies(strategies map[string]Bandwi
 	s.strategies = strategies
 }
 
-func CreateStrategy(strategy string, mode string, connectionType string, speed uint64) (BandwidthStrategy, error) {
+type BypassBandwidthStrategy struct{}
+
+func NewBypassBandwidthStrategy() *BypassBandwidthStrategy {
+	return &BypassBandwidthStrategy{}
+}
+
+func (s *BypassBandwidthStrategy) wrapConn(ctx context.Context, conn net.Conn, metadata *adapter.InboundContext, reverse bool) (net.Conn, error) {
+	return conn, nil
+}
+
+func (s *BypassBandwidthStrategy) wrapPacketConn(ctx context.Context, conn net.PacketConn, metadata *adapter.InboundContext, reverse bool) (net.PacketConn, error) {
+	return conn, nil
+}
+
+func CreateStrategy(strategy string, mode string, connectionType string, speed uint64, flowKeys []string) (BandwidthStrategy, error) {
 	var limiterStrategy BandwidthLimiterStrategy
 	switch strategy {
 	case "global":
-		limiterStrategy = NewGlobalBandwidthStrategy(speed)
+		var err error
+		limiterStrategy, err = NewGlobalBandwidthStrategy(speed, flowKeys)
+		if err != nil {
+			return nil, err
+		}
 	case "connection":
 		var connIDGetter ConnIDGetter
 		switch connectionType {
+		case "hwid":
+			connIDGetter = func(ctx context.Context, metadata *adapter.InboundContext) (string, bool) {
+				id, ok := ctx.Value("hwid").(string)
+				return id, ok
+			}
 		case "mux":
 			connIDGetter = func(ctx context.Context, metadata *adapter.InboundContext) (string, bool) {
 				id, ok := log.MuxIDFromContext(ctx)
@@ -189,19 +222,24 @@ func CreateStrategy(strategy string, mode string, connectionType string, speed u
 				}
 				return strconv.FormatUint(uint64(id.ID), 10), ok
 			}
-		case "hwid":
-			connIDGetter = func(ctx context.Context, metadata *adapter.InboundContext) (string, bool) {
-				id, ok := ctx.Value("hwid").(string)
-				return id, ok
-			}
-		case "ip":
+		case "source_ip":
 			connIDGetter = func(ctx context.Context, metadata *adapter.InboundContext) (string, bool) {
 				return metadata.Source.IPAddr().String(), true
+			}
+		case "default", "":
+			connIDGetter = func(ctx context.Context, metadata *adapter.InboundContext) (string, bool) {
+				id, ok := log.IDFromContext(ctx)
+				if !ok {
+					return "", ok
+				}
+				return strconv.FormatUint(uint64(id.ID), 10), ok
 			}
 		default:
 			return nil, E.New("connection type not found: ", connectionType)
 		}
-		limiterStrategy = NewConnectionBandwidthStrategy(connIDGetter, speed)
+		limiterStrategy = NewConnectionBandwidthStrategy(connIDGetter, speed, flowKeys)
+	case "bypass":
+		return NewBypassBandwidthStrategy(), nil
 	default:
 		return nil, E.New("strategy not found: ", strategy)
 	}
@@ -216,51 +254,55 @@ func CreateStrategy(strategy string, mode string, connectionType string, speed u
 	case "upload":
 		connWrapper = connWithUploadBandwidthWrapper
 		packetConnWrapper = packetConnWithUploadBandwidthWrapper
-	case "duplex":
-		connWrapper = connWithDuplexBandwidthWrapper
-		packetConnWrapper = packetConnWithDuplexBandwidthWrapper
+	case "bidirectional":
+		connWrapper = connWithBidirectionalBandwidthWrapper
+		packetConnWrapper = packetConnWithBidirectionalBandwidthWrapper
 	default:
 		return nil, E.New("mode not found: ", mode)
 	}
 	return NewDefaultWrapStrategy(limiterStrategy, connWrapper, packetConnWrapper), nil
 }
 
-func createSpeedLimiter(speed uint64) *rate.Limiter {
-	return rate.NewLimiter(rate.Limit(float64(speed)), 65536)
-}
-
-func connWithDownloadBandwidthWrapper(ctx context.Context, conn net.Conn, limiter *rate.Limiter, reverse bool) net.Conn {
-	if reverse {
-		return NewConnWithUploadBandwidthLimiter(ctx, conn, limiter)
+func createSpeedLimiter(speed uint64, flowKeys []string) (Limiter, error) {
+	var limiter Limiter = rate.NewLimiter(rate.Limit(float64(speed)), 65536)
+	for i := len(flowKeys) - 1; i >= 0; i-- {
+		getter, err := flowKeysConnIDGetter(flowKeys[i])
+		if err != nil {
+			return nil, err
+		}
+		limiter = NewFlowKeysLimiter(getter, limiter)
 	}
-	return NewConnWithDownloadBandwidthLimiter(ctx, conn, limiter)
+	return limiter, nil
 }
 
-func connWithUploadBandwidthWrapper(ctx context.Context, conn net.Conn, limiter *rate.Limiter, reverse bool) net.Conn {
-	if reverse {
-		return NewConnWithDownloadBandwidthLimiter(ctx, conn, limiter)
+func flowKeysConnIDGetter(name string) (ConnIDGetter, error) {
+	switch name {
+	case "user":
+		return func(ctx context.Context, metadata *adapter.InboundContext) (string, bool) {
+			return metadata.User, true
+		}, nil
+	case "destination":
+		return func(ctx context.Context, metadata *adapter.InboundContext) (string, bool) {
+			return metadata.Destination.String(), true
+		}, nil
+	case "source_ip":
+		return func(ctx context.Context, metadata *adapter.InboundContext) (string, bool) {
+			return metadata.Source.IPAddr().String(), true
+		}, nil
+	case "hwid":
+		return func(ctx context.Context, metadata *adapter.InboundContext) (string, bool) {
+			id, ok := ctx.Value("hwid").(string)
+			return id, ok
+		}, nil
+	case "mux":
+		return func(ctx context.Context, metadata *adapter.InboundContext) (string, bool) {
+			id, ok := log.MuxIDFromContext(ctx)
+			if !ok {
+				return "", ok
+			}
+			return strconv.FormatUint(uint64(id.ID), 10), ok
+		}, nil
+	default:
+		return nil, E.New("flow key not found: ", name)
 	}
-	return NewConnWithUploadBandwidthLimiter(ctx, conn, limiter)
-}
-
-func connWithDuplexBandwidthWrapper(ctx context.Context, conn net.Conn, limiter *rate.Limiter, reverse bool) net.Conn {
-	return NewConnWithUploadBandwidthLimiter(ctx, NewConnWithDownloadBandwidthLimiter(ctx, conn, limiter), limiter)
-}
-
-func packetConnWithDownloadBandwidthWrapper(ctx context.Context, conn net.PacketConn, limiter *rate.Limiter, reverse bool) net.PacketConn {
-	if reverse {
-		return NewPacketConnWithUploadBandwidthLimiter(ctx, conn, limiter)
-	}
-	return NewPacketConnWithDownloadBandwidthLimiter(ctx, conn, limiter)
-}
-
-func packetConnWithUploadBandwidthWrapper(ctx context.Context, conn net.PacketConn, limiter *rate.Limiter, reverse bool) net.PacketConn {
-	if reverse {
-		return NewPacketConnWithDownloadBandwidthLimiter(ctx, conn, limiter)
-	}
-	return NewPacketConnWithUploadBandwidthLimiter(ctx, conn, limiter)
-}
-
-func packetConnWithDuplexBandwidthWrapper(ctx context.Context, conn net.PacketConn, limiter *rate.Limiter, reverse bool) net.PacketConn {
-	return NewPacketConnWithUploadBandwidthLimiter(ctx, NewPacketConnWithDownloadBandwidthLimiter(ctx, conn, limiter), limiter)
 }

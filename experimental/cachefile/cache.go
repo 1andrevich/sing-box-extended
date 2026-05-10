@@ -145,7 +145,7 @@ func (c *CacheFile) Start(stage adapter.StartStage) error {
 			if name[0] == 0 {
 				return b.ForEachBucket(func(k []byte) error {
 					bucketName := string(k)
-					if !(common.Contains(bucketNameList, bucketName)) {
+					if !common.Contains(bucketNameList, bucketName) {
 						_ = b.DeleteBucket(name)
 					}
 					return nil

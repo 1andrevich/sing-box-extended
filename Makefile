@@ -14,11 +14,34 @@ PREFIX ?= $(shell go env GOPATH)
 SING_FFI ?= sing-ffi
 LIBBOX_FFI_CONFIG ?= ./experimental/libbox/ffi.json
 
+ADMIN_PANEL_DIR = service/admin_panel
+ADMIN_PANEL_WEB = $(ADMIN_PANEL_DIR)/web
+ADMIN_PANEL_DIST = $(ADMIN_PANEL_DIR)/dist
+ADMIN_PANEL_TAGS = $(TAGS),with_admin_panel
+
+DOCKER_IMAGE ?= shtorm7/sing-box-extended
+DOCKER_PLATFORMS ?= linux/amd64,linux/arm64
+
 .PHONY: test release docs build
 
 build:
 	export GOTOOLCHAIN=local && \
 	go build $(MAIN_PARAMS) $(MAIN)
+
+admin_panel_web:
+	cd $(ADMIN_PANEL_WEB) && \
+		npm install --no-fund --no-audit && \
+		npm run build
+
+admin_panel_pack:
+	go run ./cmd/internal/admin_panel_pack \
+		-dir $(ADMIN_PANEL_DIST)
+
+admin_panel_regen: admin_panel_web admin_panel_pack
+
+build_admin_panel:
+	export GOTOOLCHAIN=local && \
+	go build $(PARAMS) -tags "$(ADMIN_PANEL_TAGS)" $(MAIN)
 
 race:
 	export GOTOOLCHAIN=local && \
@@ -83,6 +106,15 @@ release_repo:
 
 release_install:
 	go install -v github.com/tcnksm/ghr@latest
+
+release_docker:
+	sudo docker buildx build \
+		--platform $(DOCKER_PLATFORMS) \
+		-t $(DOCKER_IMAGE):latest \
+		-t $(DOCKER_IMAGE):$(VERSION) \
+		--push \
+		--network=host \
+		.
 
 update_android_version:
 	go run ./cmd/internal/update_android_version

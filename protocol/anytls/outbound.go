@@ -83,7 +83,7 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 	outbound.client = client
 
 	outbound.uotClient = &uot.Client{
-		Dialer:  (anytlsDialer)(client.CreateProxy),
+		Dialer:  anytlsDialer(client.CreateProxy),
 		Version: uot.Version,
 	}
 	return outbound, nil

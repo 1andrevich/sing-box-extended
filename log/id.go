@@ -12,9 +12,11 @@ func init() {
 	random.InitializeSeed()
 }
 
-type idKey struct{}
-type muxIdKey struct{}
-type hwidKey struct{}
+type (
+	idKey    struct{}
+	muxIdKey struct{}
+	hwidKey  struct{}
+)
 
 type ID struct {
 	ID        uint32

@@ -14,6 +14,7 @@ import (
 	"github.com/sagernet/sing-box/dns"
 	"github.com/sagernet/sing-box/dns/transport"
 	"github.com/sagernet/sing-box/dns/transport/fakeip"
+	"github.com/sagernet/sing-box/dns/transport/fallback"
 	"github.com/sagernet/sing-box/dns/transport/hosts"
 	"github.com/sagernet/sing-box/dns/transport/local"
 	"github.com/sagernet/sing-box/log"
@@ -22,10 +23,13 @@ import (
 	"github.com/sagernet/sing-box/protocol/block"
 	"github.com/sagernet/sing-box/protocol/bond"
 	"github.com/sagernet/sing-box/protocol/direct"
+	"github.com/sagernet/sing-box/protocol/failover"
 	"github.com/sagernet/sing-box/protocol/group"
 	"github.com/sagernet/sing-box/protocol/http"
 	"github.com/sagernet/sing-box/protocol/limiter/bandwidth"
 	"github.com/sagernet/sing-box/protocol/limiter/connection"
+	"github.com/sagernet/sing-box/protocol/limiter/rate"
+	"github.com/sagernet/sing-box/protocol/limiter/traffic"
 	"github.com/sagernet/sing-box/protocol/mieru"
 	"github.com/sagernet/sing-box/protocol/mixed"
 	"github.com/sagernet/sing-box/protocol/naive"
@@ -45,9 +49,9 @@ import (
 	remoteProvider "github.com/sagernet/sing-box/provider/remote"
 	"github.com/sagernet/sing-box/service/admin_panel"
 	"github.com/sagernet/sing-box/service/manager"
+	"github.com/sagernet/sing-box/service/manager_api"
 	"github.com/sagernet/sing-box/service/node"
-	nodeManagerClient "github.com/sagernet/sing-box/service/node_manager/client"
-	nodeManagerServer "github.com/sagernet/sing-box/service/node_manager/server"
+	"github.com/sagernet/sing-box/service/node_manager_api"
 	"github.com/sagernet/sing-box/service/resolved"
 	"github.com/sagernet/sing-box/service/ssmapi"
 	E "github.com/sagernet/sing/common/exceptions"
@@ -78,6 +82,7 @@ func InboundRegistry() *inbound.Registry {
 	anytls.RegisterInbound(registry)
 
 	bond.RegisterInbound(registry)
+	failover.RegisterInbound(registry)
 
 	registerQUICInbounds(registry)
 	registerStubForRemovedInbounds(registry)
@@ -112,9 +117,12 @@ func OutboundRegistry() *outbound.Registry {
 	registerMASQUEOutbound(registry)
 
 	bond.RegisterOutbound(registry)
+	failover.RegisterOutbound(registry)
 
 	bandwidth.RegisterOutbound(registry)
 	connection.RegisterOutbound(registry)
+	traffic.RegisterOutbound(registry)
+	rate.RegisterOutbound(registry)
 
 	parser.RegisterOutbound(registry)
 
@@ -157,6 +165,7 @@ func DNSTransportRegistry() *dns.TransportRegistry {
 	hosts.RegisterTransport(registry)
 	local.RegisterTransport(registry)
 	fakeip.RegisterTransport(registry)
+	fallback.RegisterTransport(registry)
 	resolved.RegisterTransport(registry)
 
 	registerQUICTransports(registry)
@@ -171,9 +180,9 @@ func ServiceRegistry() *service.Registry {
 
 	admin_panel.RegisterService(registry)
 	manager.RegisterService(registry)
+	manager_api.RegisterService(registry)
 	node.RegisterService(registry)
-	nodeManagerClient.RegisterService(registry)
-	nodeManagerServer.RegisterService(registry)
+	node_manager_api.RegisterService(registry)
 	resolved.RegisterService(registry)
 	ssmapi.RegisterService(registry)
 
@@ -181,6 +190,7 @@ func ServiceRegistry() *service.Registry {
 	registerCCMService(registry)
 	registerOCMService(registry)
 	registerOOMKillerService(registry)
+	registerProfilerService(registry)
 
 	return registry
 }

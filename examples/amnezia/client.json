@@ -15,13 +15,15 @@
       "type": "wireguard",
       "tag": "wireguard-out",
       "mtu": 1408,
-      "address": null,
-      "private_key": "",
+      "address": ["10.0.0.2/32"],
+      "private_key": "QGg8AFRn6qKfTB7cT3FWH1WGx3np+OKzlNuQUrqIBmI=",
       "listen_port": 10000,
       "peers": [
         {
           "address": "example.com",
           "port": 10001,
+          "public_key": "3nk7jdnkcL95Fc/z+GCiH7jOovEKhFkLIGPT+U/uLEQ=",
+          "allowed_ips": ["0.0.0.0/0"],
           "reserved": "AAAA"
         }
       ],

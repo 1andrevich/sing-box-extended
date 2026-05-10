@@ -18,18 +18,21 @@ type ManagedConnectionStrategy interface {
 }
 
 type ConnectionLimiterManager struct {
+	ctx         context.Context
 	nodeManager CM.NodeManager
-	managers    map[string]*ConnectionLimiterStrategyManager
-	logger      log.Logger
+	logger      log.ContextLogger
+
+	managers map[string]*ConnectionLimiterStrategyManager
 
 	mtx sync.Mutex
 }
 
-func NewConnectionLimiterManager(nodeManager CM.NodeManager, logger log.Logger) *ConnectionLimiterManager {
+func NewConnectionLimiterManager(ctx context.Context, nodeManager CM.NodeManager, logger log.ContextLogger) *ConnectionLimiterManager {
 	return &ConnectionLimiterManager{
+		ctx:         ctx,
 		nodeManager: nodeManager,
-		managers:    make(map[string]*ConnectionLimiterStrategyManager),
 		logger:      logger,
+		managers:    make(map[string]*ConnectionLimiterStrategyManager),
 	}
 }
 
@@ -45,9 +48,9 @@ func (m *ConnectionLimiterManager) AddConnectionLimiterStrategyManager(outbound 
 		return E.New("strategy ", strategy, " is not manager")
 	}
 	m.managers[outbound.Tag()] = &ConnectionLimiterStrategyManager{
+		manager:       m,
 		strategy:      strategy,
 		strategiesMap: make(map[string]connection.ConnectionStrategy),
-		manager:       m,
 	}
 	return nil
 }
@@ -63,17 +66,17 @@ func (m *ConnectionLimiterManager) GetConnectionLimiterStrategyManagerTags() []s
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
 	tags := make([]string, 0, len(m.managers))
-	for tag, _ := range m.managers {
+	for tag := range m.managers {
 		tags = append(tags, tag)
 	}
 	return tags
 }
 
 type ConnectionLimiterStrategyManager struct {
+	manager       *ConnectionLimiterManager
 	strategy      ManagedConnectionStrategy
 	strategiesMap map[string]connection.ConnectionStrategy
 	tag           string
-	manager       *ConnectionLimiterManager
 
 	mtx sync.Mutex
 }
@@ -87,10 +90,12 @@ func (i *ConnectionLimiterStrategyManager) UpdateConnectionLimiter(limiter CM.Co
 	defer i.mtx.Unlock()
 	lock, err := i.createLock(limiter)
 	if err != nil {
+		i.manager.logger.ErrorContext(i.manager.ctx, err)
 		return
 	}
 	strategy, err := connection.CreateStrategy(limiter.Strategy, limiter.ConnectionType, lock)
 	if err != nil {
+		i.manager.logger.ErrorContext(i.manager.ctx, err)
 		return
 	}
 	i.strategiesMap[limiter.Username] = strategy
@@ -105,11 +110,13 @@ func (i *ConnectionLimiterStrategyManager) UpdateConnectionLimiters(limiters []C
 	for _, limiter := range limiters {
 		lock, err := i.createLock(limiter)
 		if err != nil {
-			return
+			i.manager.logger.ErrorContext(i.manager.ctx, err)
+			continue
 		}
 		strategy, err := connection.CreateStrategy(limiter.Strategy, limiter.ConnectionType, lock)
 		if err != nil {
-			return
+			i.manager.logger.ErrorContext(i.manager.ctx, err)
+			continue
 		}
 		newStrategiesMap[limiter.Username] = strategy
 	}
@@ -128,7 +135,7 @@ func (i *ConnectionLimiterStrategyManager) createLock(limiter CM.ConnectionLimit
 	switch limiter.LockType {
 	case "manager":
 		return i.newManagerLock(limiter.ID), nil
-	case "":
+	case "default", "":
 		return connection.NewDefaultLock(limiter.Count), nil
 	default:
 		return nil, E.New("unknown lock type \"", limiter.LockType, "\"")

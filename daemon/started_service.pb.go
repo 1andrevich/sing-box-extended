@@ -1,13 +1,12 @@
 package daemon
 
 import (
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
 )
 
 const (
@@ -1948,43 +1947,40 @@ func file_daemon_started_service_proto_rawDescGZIP() []byte {
 	return file_daemon_started_service_proto_rawDescData
 }
 
-var (
-	file_daemon_started_service_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-	file_daemon_started_service_proto_msgTypes  = make([]protoimpl.MessageInfo, 26)
-	file_daemon_started_service_proto_goTypes   = []any{
-		(LogLevel)(0),                        // 0: daemon.LogLevel
-		(ConnectionEventType)(0),             // 1: daemon.ConnectionEventType
-		(ServiceStatus_Type)(0),              // 2: daemon.ServiceStatus.Type
-		(*ServiceStatus)(nil),                // 3: daemon.ServiceStatus
-		(*ReloadServiceRequest)(nil),         // 4: daemon.ReloadServiceRequest
-		(*SubscribeStatusRequest)(nil),       // 5: daemon.SubscribeStatusRequest
-		(*Log)(nil),                          // 6: daemon.Log
-		(*DefaultLogLevel)(nil),              // 7: daemon.DefaultLogLevel
-		(*Status)(nil),                       // 8: daemon.Status
-		(*Groups)(nil),                       // 9: daemon.Groups
-		(*Group)(nil),                        // 10: daemon.Group
-		(*GroupItem)(nil),                    // 11: daemon.GroupItem
-		(*URLTestRequest)(nil),               // 12: daemon.URLTestRequest
-		(*SelectOutboundRequest)(nil),        // 13: daemon.SelectOutboundRequest
-		(*SetGroupExpandRequest)(nil),        // 14: daemon.SetGroupExpandRequest
-		(*ClashMode)(nil),                    // 15: daemon.ClashMode
-		(*ClashModeStatus)(nil),              // 16: daemon.ClashModeStatus
-		(*SystemProxyStatus)(nil),            // 17: daemon.SystemProxyStatus
-		(*SetSystemProxyEnabledRequest)(nil), // 18: daemon.SetSystemProxyEnabledRequest
-		(*SubscribeConnectionsRequest)(nil),  // 19: daemon.SubscribeConnectionsRequest
-		(*ConnectionEvent)(nil),              // 20: daemon.ConnectionEvent
-		(*ConnectionEvents)(nil),             // 21: daemon.ConnectionEvents
-		(*Connection)(nil),                   // 22: daemon.Connection
-		(*ProcessInfo)(nil),                  // 23: daemon.ProcessInfo
-		(*CloseConnectionRequest)(nil),       // 24: daemon.CloseConnectionRequest
-		(*DeprecatedWarnings)(nil),           // 25: daemon.DeprecatedWarnings
-		(*DeprecatedWarning)(nil),            // 26: daemon.DeprecatedWarning
-		(*StartedAt)(nil),                    // 27: daemon.StartedAt
-		(*Log_Message)(nil),                  // 28: daemon.Log.Message
-		(*emptypb.Empty)(nil),                // 29: google.protobuf.Empty
-	}
-)
-
+var file_daemon_started_service_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_daemon_started_service_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
+var file_daemon_started_service_proto_goTypes = []any{
+	(LogLevel)(0),                        // 0: daemon.LogLevel
+	(ConnectionEventType)(0),             // 1: daemon.ConnectionEventType
+	(ServiceStatus_Type)(0),              // 2: daemon.ServiceStatus.Type
+	(*ServiceStatus)(nil),                // 3: daemon.ServiceStatus
+	(*ReloadServiceRequest)(nil),         // 4: daemon.ReloadServiceRequest
+	(*SubscribeStatusRequest)(nil),       // 5: daemon.SubscribeStatusRequest
+	(*Log)(nil),                          // 6: daemon.Log
+	(*DefaultLogLevel)(nil),              // 7: daemon.DefaultLogLevel
+	(*Status)(nil),                       // 8: daemon.Status
+	(*Groups)(nil),                       // 9: daemon.Groups
+	(*Group)(nil),                        // 10: daemon.Group
+	(*GroupItem)(nil),                    // 11: daemon.GroupItem
+	(*URLTestRequest)(nil),               // 12: daemon.URLTestRequest
+	(*SelectOutboundRequest)(nil),        // 13: daemon.SelectOutboundRequest
+	(*SetGroupExpandRequest)(nil),        // 14: daemon.SetGroupExpandRequest
+	(*ClashMode)(nil),                    // 15: daemon.ClashMode
+	(*ClashModeStatus)(nil),              // 16: daemon.ClashModeStatus
+	(*SystemProxyStatus)(nil),            // 17: daemon.SystemProxyStatus
+	(*SetSystemProxyEnabledRequest)(nil), // 18: daemon.SetSystemProxyEnabledRequest
+	(*SubscribeConnectionsRequest)(nil),  // 19: daemon.SubscribeConnectionsRequest
+	(*ConnectionEvent)(nil),              // 20: daemon.ConnectionEvent
+	(*ConnectionEvents)(nil),             // 21: daemon.ConnectionEvents
+	(*Connection)(nil),                   // 22: daemon.Connection
+	(*ProcessInfo)(nil),                  // 23: daemon.ProcessInfo
+	(*CloseConnectionRequest)(nil),       // 24: daemon.CloseConnectionRequest
+	(*DeprecatedWarnings)(nil),           // 25: daemon.DeprecatedWarnings
+	(*DeprecatedWarning)(nil),            // 26: daemon.DeprecatedWarning
+	(*StartedAt)(nil),                    // 27: daemon.StartedAt
+	(*Log_Message)(nil),                  // 28: daemon.Log.Message
+	(*emptypb.Empty)(nil),                // 29: google.protobuf.Empty
+}
 var file_daemon_started_service_proto_depIdxs = []int32{
 	2,  // 0: daemon.ServiceStatus.status:type_name -> daemon.ServiceStatus.Type
 	28, // 1: daemon.Log.messages:type_name -> daemon.Log.Message

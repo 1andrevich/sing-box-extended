@@ -147,7 +147,8 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 				UDPKeepalivePeriod:   udpKeepalivePeriod,
 				UDPInitialPacketSize: options.UDPInitialPacketSize,
 				ReconnectDelay:       options.ReconnectDelay.Build(),
-			})
+			},
+		)
 		if err != nil {
 			logger.ErrorContext(ctx, err)
 			return

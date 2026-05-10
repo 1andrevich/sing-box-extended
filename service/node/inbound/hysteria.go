@@ -42,7 +42,7 @@ func (m *HysteriaManager) GetUserManagerTags() []string {
 	m.access.Lock()
 	defer m.access.Unlock()
 	tags := make([]string, 0, len(m.inbounds))
-	for tag, _ := range m.inbounds {
+	for tag := range m.inbounds {
 		tags = append(tags, tag)
 	}
 	return tags

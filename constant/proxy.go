@@ -30,15 +30,17 @@ const (
 	TypeTUIC              = "tuic"
 	TypeHysteria2         = "hysteria2"
 	TypeBond              = "bond"
+	TypeFailover          = "failover"
 	TypeVPNServer         = "vpn-server"
 	TypeVPNClient         = "vpn-client"
 	TypeTailscale         = "tailscale"
 	TypeConnectionLimiter = "connection-limiter"
 	TypeBandwidthLimiter  = "bandwidth-limiter"
 	TypeTrafficLimiter    = "traffic-limiter"
+	TypeRateLimiter       = "rate-limiter"
 	TypeAdminPanel        = "admin-panel"
-	TypeNodeManagerServer = "node-manager-server"
-	TypeNodeManagerClient = "node-manager-client"
+	TypeManagerAPI        = "manager-api"
+	TypeNodeManagerAPI    = "node-manager-api"
 	TypeDERP              = "derp"
 	TypeManager           = "manager"
 	TypeNode              = "node"
@@ -47,6 +49,7 @@ const (
 	TypeCCM               = "ccm"
 	TypeOCM               = "ocm"
 	TypeOOMKiller         = "oom-killer"
+	TypeProfiler          = "profiler"
 )
 
 const (
@@ -111,6 +114,8 @@ func ProxyDisplayName(proxyType string) string {
 		return "Hysteria2"
 	case TypeBond:
 		return "Bond"
+	case TypeFailover:
+		return "Failover"
 	case TypeMieru:
 		return "Mieru"
 	case TypeAnyTLS:
@@ -123,10 +128,20 @@ func ProxyDisplayName(proxyType string) string {
 		return "Selector"
 	case TypeURLTest:
 		return "URLTest"
+	case TypeConnectionLimiter:
+		return "Connection Limiter"
+	case TypeBandwidthLimiter:
+		return "Bandwidth Limiter"
+	case TypeTrafficLimiter:
+		return "Traffic Limiter"
+	case TypeRateLimiter:
+		return "Rate Limiter"
 	case TypeVPNClient:
 		return "VPN Client"
 	case TypeVPNServer:
 		return "VPN Server"
+	case TypeProfiler:
+		return "Profiler"
 	default:
 		return "Unknown"
 	}

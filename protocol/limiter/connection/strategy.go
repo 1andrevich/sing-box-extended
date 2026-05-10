@@ -87,11 +87,26 @@ func (s *ManagerConnectionStrategy) UpdateStrategies(strategies map[string]Conne
 	s.strategies = strategies
 }
 
+type BypassConnectionStrategy struct{}
+
+func NewBypassConnectionStrategy() *BypassConnectionStrategy {
+	return &BypassConnectionStrategy{}
+}
+
+func (s *BypassConnectionStrategy) request(ctx context.Context, metadata *adapter.InboundContext) (CloseHandlerFunc, context.Context, error) {
+	return func() {}, nil, nil
+}
+
 func CreateStrategy(strategy string, connectionType string, lockIDGetter LockIDGetter) (ConnectionStrategy, error) {
 	switch strategy {
 	case "connection":
 		var connIDGetter ConnIDGetter
 		switch connectionType {
+		case "hwid":
+			connIDGetter = func(ctx context.Context, metadata *adapter.InboundContext) (string, bool) {
+				id, ok := ctx.Value("hwid").(string)
+				return id, ok
+			}
 		case "mux":
 			connIDGetter = func(ctx context.Context, metadata *adapter.InboundContext) (string, bool) {
 				id, ok := log.MuxIDFromContext(ctx)
@@ -100,19 +115,24 @@ func CreateStrategy(strategy string, connectionType string, lockIDGetter LockIDG
 				}
 				return strconv.FormatUint(uint64(id.ID), 10), ok
 			}
-		case "hwid":
-			connIDGetter = func(ctx context.Context, metadata *adapter.InboundContext) (string, bool) {
-				id, ok := ctx.Value("hwid").(string)
-				return id, ok
-			}
-		case "ip":
+		case "source_ip":
 			connIDGetter = func(ctx context.Context, metadata *adapter.InboundContext) (string, bool) {
 				return metadata.Source.IPAddr().String(), true
+			}
+		case "default", "":
+			connIDGetter = func(ctx context.Context, metadata *adapter.InboundContext) (string, bool) {
+				id, ok := log.IDFromContext(ctx)
+				if !ok {
+					return "", ok
+				}
+				return strconv.FormatUint(uint64(id.ID), 10), ok
 			}
 		default:
 			return nil, E.New("connection type not found: ", connectionType)
 		}
 		return NewDefaultConnectionStrategy(connIDGetter, lockIDGetter), nil
+	case "bypass":
+		return NewBypassConnectionStrategy(), nil
 	default:
 		return nil, E.New("strategy not found: ", strategy)
 	}

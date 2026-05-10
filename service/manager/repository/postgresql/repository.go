@@ -10,13 +10,11 @@ import (
 	"github.com/huandu/go-sqlbuilder"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sagernet/sing-box/common/byteformats"
 	"github.com/sagernet/sing-box/service/manager/constant"
-	"github.com/sagernet/sing/common/byteformats"
 )
 
-var (
-	squadFilters, nodeFilters, userFilters, bandwidthLimiterFilters, connectionLimiterFilters map[string]Filter
-)
+var squadFilters, nodeFilters, userFilters, bandwidthLimiterFilters, connectionLimiterFilters, trafficLimiterFilters, rateLimiterFilters map[string]Filter
 
 type PostgreSQLRepository struct {
 	db  *pgxpool.Pool
@@ -42,7 +40,8 @@ func NewPostgreSQLRepository(ctx context.Context, dsn string) (*PostgreSQLReposi
 func (r *PostgreSQLRepository) CreateSquad(squad constant.SquadCreate) (constant.Squad, error) {
 	var s constant.Squad
 	now := time.Now()
-	err := r.db.QueryRow(r.ctx, `
+	err := r.db.QueryRow(
+		r.ctx, `
 		INSERT INTO squads
 		(
 			name,
@@ -60,25 +59,6 @@ func (r *PostgreSQLRepository) CreateSquad(squad constant.SquadCreate) (constant
 		now,
 		now,
 	).Scan(
-		&s.ID,
-		&s.Name,
-		&s.CreatedAt,
-		&s.UpdatedAt,
-	)
-	return s, err
-}
-
-func (r *PostgreSQLRepository) GetSquad(id int) (constant.Squad, error) {
-	var s constant.Squad
-	err := r.db.QueryRow(r.ctx, `
-		SELECT
-			id,
-			name,
-			created_at,
-			updated_at
-		FROM squads
-		WHERE id=$1
-	`, id).Scan(
 		&s.ID,
 		&s.Name,
 		&s.CreatedAt,
@@ -142,9 +122,29 @@ func (r *PostgreSQLRepository) GetSquadsCount(filters map[string][]string) (int,
 	return count, err
 }
 
-func (r *PostgreSQLRepository) UpdateSquad(id int, squad constant.SquadUpdate) (constant.Squad, error) {
+func (r *PostgreSQLRepository) GetSquad(id int) (constant.Squad, error) {
 	var s constant.Squad
 	err := r.db.QueryRow(r.ctx, `
+		SELECT
+			id,
+			name,
+			created_at,
+			updated_at
+		FROM squads
+		WHERE id=$1
+	`, id).Scan(
+		&s.ID,
+		&s.Name,
+		&s.CreatedAt,
+		&s.UpdatedAt,
+	)
+	return s, err
+}
+
+func (r *PostgreSQLRepository) UpdateSquad(id int, squad constant.SquadUpdate) (constant.Squad, error) {
+	var s constant.Squad
+	err := r.db.QueryRow(
+		r.ctx, `
 		UPDATE squads
 		SET
 			name=$1,
@@ -168,9 +168,42 @@ func (r *PostgreSQLRepository) UpdateSquad(id int, squad constant.SquadUpdate) (
 	return s, err
 }
 
-func (r *PostgreSQLRepository) DeleteSquad(id int) (constant.Squad, error) {
-	var s constant.Squad
-	err := r.db.QueryRow(r.ctx, `
+func (r *PostgreSQLRepository) DeleteSquad(id int) (constant.DeletedSquad, error) {
+	var result constant.DeletedSquad
+	tx, err := r.db.Begin(r.ctx)
+	if err != nil {
+		return result, err
+	}
+	defer tx.Rollback(r.ctx)
+	affectedNodeRows, err := tx.Query(r.ctx, `DELETE FROM node_to_squad WHERE squad_id=$1 RETURNING node_uuid`, id)
+	if err != nil {
+		return result, err
+	}
+	affectedNodeUUIDs := make([]string, 0)
+	for affectedNodeRows.Next() {
+		var uuid string
+		if err = affectedNodeRows.Scan(&uuid); err != nil {
+			affectedNodeRows.Close()
+			return result, err
+		}
+		affectedNodeUUIDs = append(affectedNodeUUIDs, uuid)
+	}
+	affectedNodeRows.Close()
+	if err = affectedNodeRows.Err(); err != nil {
+		return result, err
+	}
+	for _, table := range []string{
+		"user_to_squad",
+		"connection_limiter_to_squad",
+		"bandwidth_limiter_to_squad",
+		"traffic_limiter_to_squad",
+		"rate_limiter_to_squad",
+	} {
+		if _, err = tx.Exec(r.ctx, `DELETE FROM `+table+` WHERE squad_id=$1`, id); err != nil {
+			return result, err
+		}
+	}
+	err = tx.QueryRow(r.ctx, `
 		DELETE FROM squads
 		WHERE id=$1
 		RETURNING
@@ -179,12 +212,103 @@ func (r *PostgreSQLRepository) DeleteSquad(id int) (constant.Squad, error) {
 			created_at,
 			updated_at
 	`, id).Scan(
-		&s.ID,
-		&s.Name,
-		&s.CreatedAt,
-		&s.UpdatedAt,
+		&result.Squad.ID,
+		&result.Squad.Name,
+		&result.Squad.CreatedAt,
+		&result.Squad.UpdatedAt,
 	)
-	return s, err
+	if err != nil {
+		return result, err
+	}
+	orphanedNodeRows, err := tx.Query(r.ctx, `
+		DELETE FROM nodes
+		WHERE NOT EXISTS (SELECT 1 FROM node_to_squad WHERE node_to_squad.node_uuid = nodes.uuid)
+		RETURNING uuid
+	`)
+	if err != nil {
+		return result, err
+	}
+	orphanedNodeUUIDs := make(map[string]struct{})
+	for orphanedNodeRows.Next() {
+		var uuid string
+		if err = orphanedNodeRows.Scan(&uuid); err != nil {
+			orphanedNodeRows.Close()
+			return result, err
+		}
+		orphanedNodeUUIDs[uuid] = struct{}{}
+		result.OrphanedNodeUUIDs = append(result.OrphanedNodeUUIDs, uuid)
+	}
+	orphanedNodeRows.Close()
+	if err = orphanedNodeRows.Err(); err != nil {
+		return result, err
+	}
+	for _, uuid := range affectedNodeUUIDs {
+		if _, ok := orphanedNodeUUIDs[uuid]; !ok {
+			result.SurvivingNodeUUIDs = append(result.SurvivingNodeUUIDs, uuid)
+		}
+	}
+	if _, err = tx.Exec(r.ctx, `
+		DELETE FROM users
+		WHERE NOT EXISTS (SELECT 1 FROM user_to_squad WHERE user_to_squad.user_id = users.id)
+	`); err != nil {
+		return result, err
+	}
+	connRows, err := tx.Query(r.ctx, `
+		DELETE FROM connection_limiters
+		WHERE NOT EXISTS (SELECT 1 FROM connection_limiter_to_squad WHERE connection_limiter_to_squad.connection_limiter_id = connection_limiters.id)
+		RETURNING id
+	`)
+	if err != nil {
+		return result, err
+	}
+	for connRows.Next() {
+		var lid int
+		if err = connRows.Scan(&lid); err != nil {
+			connRows.Close()
+			return result, err
+		}
+		result.OrphanedConnectionLimiterIDs = append(result.OrphanedConnectionLimiterIDs, lid)
+	}
+	connRows.Close()
+	if err = connRows.Err(); err != nil {
+		return result, err
+	}
+	if _, err = tx.Exec(r.ctx, `
+		DELETE FROM bandwidth_limiters
+		WHERE NOT EXISTS (SELECT 1 FROM bandwidth_limiter_to_squad WHERE bandwidth_limiter_to_squad.bandwidth_limiter_id = bandwidth_limiters.id)
+	`); err != nil {
+		return result, err
+	}
+	trafficRows, err := tx.Query(r.ctx, `
+		DELETE FROM traffic_limiters
+		WHERE NOT EXISTS (SELECT 1 FROM traffic_limiter_to_squad WHERE traffic_limiter_to_squad.traffic_limiter_id = traffic_limiters.id)
+		RETURNING id
+	`)
+	if err != nil {
+		return result, err
+	}
+	for trafficRows.Next() {
+		var lid int
+		if err = trafficRows.Scan(&lid); err != nil {
+			trafficRows.Close()
+			return result, err
+		}
+		result.OrphanedTrafficLimiterIDs = append(result.OrphanedTrafficLimiterIDs, lid)
+	}
+	trafficRows.Close()
+	if err = trafficRows.Err(); err != nil {
+		return result, err
+	}
+	if _, err = tx.Exec(r.ctx, `
+		DELETE FROM rate_limiters
+		WHERE NOT EXISTS (SELECT 1 FROM rate_limiter_to_squad WHERE rate_limiter_to_squad.rate_limiter_id = rate_limiters.id)
+	`); err != nil {
+		return result, err
+	}
+	if err = tx.Commit(r.ctx); err != nil {
+		return result, err
+	}
+	return result, nil
 }
 
 func (r *PostgreSQLRepository) CreateNode(node constant.NodeCreate) (constant.Node, error) {
@@ -195,7 +319,8 @@ func (r *PostgreSQLRepository) CreateNode(node constant.NodeCreate) (constant.No
 	}
 	defer tx.Rollback(r.ctx)
 	now := time.Now()
-	err = tx.QueryRow(r.ctx, `
+	err = tx.QueryRow(
+		r.ctx, `
 		INSERT INTO nodes (
 			uuid,
 			name,
@@ -333,7 +458,8 @@ func (r *PostgreSQLRepository) GetNode(uuid string) (constant.Node, error) {
 
 func (r *PostgreSQLRepository) UpdateNode(uuid string, node constant.NodeUpdate) (constant.Node, error) {
 	var n constant.Node
-	err := r.db.QueryRow(r.ctx, `
+	err := r.db.QueryRow(
+		r.ctx, `
 		UPDATE nodes
 		SET 
 			name = $1,
@@ -384,11 +510,12 @@ func (r *PostgreSQLRepository) CreateUser(user constant.UserCreate) (constant.Us
 	}
 	defer tx.Rollback(r.ctx)
 	now := time.Now()
-	err = tx.QueryRow(r.ctx, `
+	err = tx.QueryRow(
+		r.ctx, `
 		INSERT INTO users (
 			username,
-			type,
 			inbound,
+			type,
 			uuid,
 			password,
 			secret,
@@ -401,8 +528,8 @@ func (r *PostgreSQLRepository) CreateUser(user constant.UserCreate) (constant.Us
 		RETURNING 
 			id,
 			username,
-			type,
 			inbound,
+			type,
 			uuid,
 			password,
 			secret,
@@ -412,8 +539,8 @@ func (r *PostgreSQLRepository) CreateUser(user constant.UserCreate) (constant.Us
 			updated_at
 	`,
 		user.Username,
-		user.Type,
 		user.Inbound,
+		user.Type,
 		user.UUID,
 		user.Password,
 		user.Secret,
@@ -424,8 +551,8 @@ func (r *PostgreSQLRepository) CreateUser(user constant.UserCreate) (constant.Us
 	).Scan(
 		&u.ID,
 		&u.Username,
-		&u.Type,
 		&u.Inbound,
+		&u.Type,
 		&u.UUID,
 		&u.Password,
 		&u.Secret,
@@ -468,8 +595,8 @@ func (r *PostgreSQLRepository) GetUsers(filters map[string][]string) ([]constant
 				WHERE user_to_squad.user_id = users.id
 			) as squad_ids`,
 			"username",
-			"type",
 			"inbound",
+			"type",
 			"uuid",
 			"password",
 			"secret",
@@ -499,8 +626,8 @@ func (r *PostgreSQLRepository) GetUsers(filters map[string][]string) ([]constant
 			&u.ID,
 			&u.SquadIDs,
 			&u.Username,
-			&u.Type,
 			&u.Inbound,
+			&u.Type,
 			&u.UUID,
 			&u.Password,
 			&u.Secret,
@@ -544,8 +671,8 @@ func (r *PostgreSQLRepository) GetUser(id int) (constant.User, error) {
 				WHERE user_to_squad.user_id = users.id
 			) as squad_ids,
 			username,
-			type,
 			inbound,
+			type,
 			uuid,
 			password,
 			secret,
@@ -559,8 +686,8 @@ func (r *PostgreSQLRepository) GetUser(id int) (constant.User, error) {
 		&u.ID,
 		&u.SquadIDs,
 		&u.Username,
-		&u.Type,
 		&u.Inbound,
+		&u.Type,
 		&u.UUID,
 		&u.Password,
 		&u.Secret,
@@ -574,7 +701,8 @@ func (r *PostgreSQLRepository) GetUser(id int) (constant.User, error) {
 
 func (r *PostgreSQLRepository) UpdateUser(id int, user constant.UserUpdate) (constant.User, error) {
 	var u constant.User
-	err := r.db.QueryRow(r.ctx, `
+	err := r.db.QueryRow(
+		r.ctx, `
 		UPDATE users
 		SET
 			uuid = $1,
@@ -592,8 +720,8 @@ func (r *PostgreSQLRepository) UpdateUser(id int, user constant.UserUpdate) (con
 				WHERE user_to_squad.user_id = users.id
 			) as squad_ids,
 			username,
-			type,
 			inbound,
+			type,
 			uuid,
 			password,
 			secret,
@@ -613,8 +741,8 @@ func (r *PostgreSQLRepository) UpdateUser(id int, user constant.UserUpdate) (con
 		&u.ID,
 		&u.SquadIDs,
 		&u.Username,
-		&u.Type,
 		&u.Inbound,
+		&u.Type,
 		&u.UUID,
 		&u.Password,
 		&u.Secret,
@@ -639,8 +767,8 @@ func (r *PostgreSQLRepository) DeleteUser(id int) (constant.User, error) {
 				WHERE user_to_squad.user_id = users.id
 			) as squad_ids,
 			username,
-			type,
 			inbound,
+			type,
 			uuid,
 			password,
 			secret,
@@ -652,8 +780,8 @@ func (r *PostgreSQLRepository) DeleteUser(id int) (constant.User, error) {
 		&u.ID,
 		&u.SquadIDs,
 		&u.Username,
-		&u.Type,
 		&u.Inbound,
+		&u.Type,
 		&u.UUID,
 		&u.Password,
 		&u.Secret,
@@ -673,7 +801,8 @@ func (r *PostgreSQLRepository) CreateConnectionLimiter(limiter constant.Connecti
 	}
 	defer tx.Rollback(r.ctx)
 	now := time.Now()
-	err = tx.QueryRow(r.ctx, `
+	err = tx.QueryRow(
+		r.ctx, `
 		INSERT INTO connection_limiters
 		(
 			username,
@@ -737,41 +866,6 @@ func (r *PostgreSQLRepository) CreateConnectionLimiter(limiter constant.Connecti
 	if err != nil {
 		return cl, err
 	}
-	return cl, err
-}
-
-func (r *PostgreSQLRepository) GetConnectionLimiter(id int) (constant.ConnectionLimiter, error) {
-	var cl constant.ConnectionLimiter
-	err := r.db.QueryRow(r.ctx, `
-		SELECT
-			id,
-			ARRAY(
-				SELECT squad_id
-				FROM connection_limiter_to_squad
-				WHERE connection_limiter_to_squad.connection_limiter_id = connection_limiters.id
-			) as squad_ids,
-			username,
-			outbound,
-			strategy,
-			connection_type,
-			lock_type,
-			count,
-			created_at,
-			updated_at
-		FROM connection_limiters
-		WHERE id=$1
-	`, id).Scan(
-		&cl.ID,
-		&cl.SquadIDs,
-		&cl.Username,
-		&cl.Outbound,
-		&cl.Strategy,
-		&cl.ConnectionType,
-		&cl.LockType,
-		&cl.Count,
-		&cl.CreatedAt,
-		&cl.UpdatedAt,
-	)
 	return cl, err
 }
 
@@ -848,9 +942,45 @@ func (r *PostgreSQLRepository) GetConnectionLimitersCount(filters map[string][]s
 	return count, err
 }
 
-func (r *PostgreSQLRepository) UpdateConnectionLimiter(id int, limiter constant.ConnectionLimiterUpdate) (constant.ConnectionLimiter, error) {
+func (r *PostgreSQLRepository) GetConnectionLimiter(id int) (constant.ConnectionLimiter, error) {
 	var cl constant.ConnectionLimiter
 	err := r.db.QueryRow(r.ctx, `
+		SELECT
+			id,
+			ARRAY(
+				SELECT squad_id
+				FROM connection_limiter_to_squad
+				WHERE connection_limiter_to_squad.connection_limiter_id = connection_limiters.id
+			) as squad_ids,
+			username,
+			outbound,
+			strategy,
+			connection_type,
+			lock_type,
+			count,
+			created_at,
+			updated_at
+		FROM connection_limiters
+		WHERE id=$1
+	`, id).Scan(
+		&cl.ID,
+		&cl.SquadIDs,
+		&cl.Username,
+		&cl.Outbound,
+		&cl.Strategy,
+		&cl.ConnectionType,
+		&cl.LockType,
+		&cl.Count,
+		&cl.CreatedAt,
+		&cl.UpdatedAt,
+	)
+	return cl, err
+}
+
+func (r *PostgreSQLRepository) UpdateConnectionLimiter(id int, limiter constant.ConnectionLimiterUpdate) (constant.ConnectionLimiter, error) {
+	var cl constant.ConnectionLimiter
+	err := r.db.QueryRow(
+		r.ctx, `
 		UPDATE connection_limiters
 		SET
 			strategy=$1,
@@ -946,28 +1076,36 @@ func (r *PostgreSQLRepository) CreateBandwidthLimiter(limiter constant.Bandwidth
 	if err = raw.UnmarshalJSON(bytesSpeed); err != nil {
 		return bl, err
 	}
+	flowKeysJSON, err := marshalStringSlice(limiter.FlowKeys)
+	if err != nil {
+		return bl, err
+	}
+	var flowKeys stringSliceJSON
 	now := time.Now()
-	err = tx.QueryRow(r.ctx, `
+	err = tx.QueryRow(
+		r.ctx, `
 		INSERT INTO bandwidth_limiters
 		(
 			username,
 			outbound,
 			strategy,
-			mode,
 			connection_type,
+			mode,
+			flow_keys,
 			speed,
 			raw_speed,
 			created_at,
 			updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING
 			id,
 			username,
 			outbound,
 			strategy,
-			mode,
 			connection_type,
+			mode,
+			flow_keys,
 			speed,
 			raw_speed,
 			created_at,
@@ -976,8 +1114,9 @@ func (r *PostgreSQLRepository) CreateBandwidthLimiter(limiter constant.Bandwidth
 		limiter.Username,
 		limiter.Outbound,
 		limiter.Strategy,
-		limiter.Mode,
 		limiter.ConnectionType,
+		limiter.Mode,
+		flowKeysJSON,
 		limiter.Speed,
 		raw.Value(),
 		now,
@@ -987,8 +1126,9 @@ func (r *PostgreSQLRepository) CreateBandwidthLimiter(limiter constant.Bandwidth
 		&bl.Username,
 		&bl.Outbound,
 		&bl.Strategy,
-		&bl.Mode,
 		&bl.ConnectionType,
+		&bl.Mode,
+		&flowKeys,
 		&bl.Speed,
 		&bl.RawSpeed,
 		&bl.CreatedAt,
@@ -997,6 +1137,7 @@ func (r *PostgreSQLRepository) CreateBandwidthLimiter(limiter constant.Bandwidth
 	if err != nil {
 		return bl, err
 	}
+	bl.FlowKeys = []string(flowKeys)
 	rows := make([][]any, len(limiter.SquadIDs))
 	for i, squadID := range limiter.SquadIDs {
 		rows[i] = []any{bl.ID, squadID}
@@ -1018,43 +1159,6 @@ func (r *PostgreSQLRepository) CreateBandwidthLimiter(limiter constant.Bandwidth
 	return bl, err
 }
 
-func (r *PostgreSQLRepository) GetBandwidthLimiter(id int) (constant.BandwidthLimiter, error) {
-	var bl constant.BandwidthLimiter
-	err := r.db.QueryRow(r.ctx, `
-		SELECT
-			id,
-			ARRAY(
-				SELECT squad_id
-				FROM bandwidth_limiter_to_squad
-				WHERE bandwidth_limiter_to_squad.bandwidth_limiter_id = bandwidth_limiters.id
-			) as squad_ids,
-			username,
-			outbound,
-			strategy,
-			mode,
-			connection_type,
-			speed,
-			raw_speed,
-			created_at,
-			updated_at
-		FROM bandwidth_limiters
-		WHERE id=$1
-	`, id).Scan(
-		&bl.ID,
-		&bl.SquadIDs,
-		&bl.Username,
-		&bl.Outbound,
-		&bl.Strategy,
-		&bl.Mode,
-		&bl.ConnectionType,
-		&bl.Speed,
-		&bl.RawSpeed,
-		&bl.CreatedAt,
-		&bl.UpdatedAt,
-	)
-	return bl, err
-}
-
 func (r *PostgreSQLRepository) GetBandwidthLimiters(filters map[string][]string) ([]constant.BandwidthLimiter, error) {
 	sb := sqlbuilder.PostgreSQL.NewSelectBuilder().
 		Select(
@@ -1067,8 +1171,9 @@ func (r *PostgreSQLRepository) GetBandwidthLimiters(filters map[string][]string)
 			"username",
 			"outbound",
 			"strategy",
-			"mode",
 			"connection_type",
+			"mode",
+			"flow_keys",
 			"speed",
 			"raw_speed",
 			"created_at",
@@ -1092,14 +1197,16 @@ func (r *PostgreSQLRepository) GetBandwidthLimiters(filters map[string][]string)
 	var result []constant.BandwidthLimiter
 	for rows.Next() {
 		var bl constant.BandwidthLimiter
+		var flowKeys stringSliceJSON
 		if err := rows.Scan(
 			&bl.ID,
 			&bl.SquadIDs,
 			&bl.Username,
 			&bl.Outbound,
 			&bl.Strategy,
-			&bl.Mode,
 			&bl.ConnectionType,
+			&bl.Mode,
+			&flowKeys,
 			&bl.Speed,
 			&bl.RawSpeed,
 			&bl.CreatedAt,
@@ -1107,6 +1214,7 @@ func (r *PostgreSQLRepository) GetBandwidthLimiters(filters map[string][]string)
 		); err != nil {
 			return nil, err
 		}
+		bl.FlowKeys = []string(flowKeys)
 		result = append(result, bl)
 	}
 	return result, rows.Err()
@@ -1129,8 +1237,50 @@ func (r *PostgreSQLRepository) GetBandwidthLimitersCount(filters map[string][]st
 	return count, err
 }
 
+func (r *PostgreSQLRepository) GetBandwidthLimiter(id int) (constant.BandwidthLimiter, error) {
+	var bl constant.BandwidthLimiter
+	var flowKeys stringSliceJSON
+	err := r.db.QueryRow(r.ctx, `
+		SELECT
+			id,
+			ARRAY(
+				SELECT squad_id
+				FROM bandwidth_limiter_to_squad
+				WHERE bandwidth_limiter_to_squad.bandwidth_limiter_id = bandwidth_limiters.id
+			) as squad_ids,
+			username,
+			outbound,
+			strategy,
+			connection_type,
+			mode,
+			flow_keys,
+			speed,
+			raw_speed,
+			created_at,
+			updated_at
+		FROM bandwidth_limiters
+		WHERE id=$1
+	`, id).Scan(
+		&bl.ID,
+		&bl.SquadIDs,
+		&bl.Username,
+		&bl.Outbound,
+		&bl.Strategy,
+		&bl.ConnectionType,
+		&bl.Mode,
+		&flowKeys,
+		&bl.Speed,
+		&bl.RawSpeed,
+		&bl.CreatedAt,
+		&bl.UpdatedAt,
+	)
+	bl.FlowKeys = []string(flowKeys)
+	return bl, err
+}
+
 func (r *PostgreSQLRepository) UpdateBandwidthLimiter(id int, limiter constant.BandwidthLimiterUpdate) (constant.BandwidthLimiter, error) {
 	var bl constant.BandwidthLimiter
+	var flowKeys stringSliceJSON
 	bytesSpeed, err := json.Marshal(limiter.Speed)
 	if err != nil {
 		return bl, err
@@ -1139,18 +1289,24 @@ func (r *PostgreSQLRepository) UpdateBandwidthLimiter(id int, limiter constant.B
 	if err = raw.UnmarshalJSON(bytesSpeed); err != nil {
 		return bl, err
 	}
-	err = r.db.QueryRow(r.ctx, `
+	flowKeysJSON, err := marshalStringSlice(limiter.FlowKeys)
+	if err != nil {
+		return bl, err
+	}
+	err = r.db.QueryRow(
+		r.ctx, `
 		UPDATE bandwidth_limiters
 		SET
 			username=$1,
 			outbound=$2,
 			strategy=$3,
-			mode=$4,
-			connection_type=$5,
-			speed=$6,
-			raw_speed=$7,
-			updated_at=$8
-		WHERE id=$9
+			connection_type=$4,
+			mode=$5,
+			flow_keys=$6,
+			speed=$7,
+			raw_speed=$8,
+			updated_at=$9
+		WHERE id=$10
 		RETURNING
 			id,
 			ARRAY(
@@ -1161,8 +1317,9 @@ func (r *PostgreSQLRepository) UpdateBandwidthLimiter(id int, limiter constant.B
 			username,
 			outbound,
 			strategy,
-			mode,
 			connection_type,
+			mode,
+			flow_keys,
 			speed,
 			raw_speed,
 			created_at,
@@ -1171,8 +1328,9 @@ func (r *PostgreSQLRepository) UpdateBandwidthLimiter(id int, limiter constant.B
 		limiter.Username,
 		limiter.Outbound,
 		limiter.Strategy,
-		limiter.Mode,
 		limiter.ConnectionType,
+		limiter.Mode,
+		flowKeysJSON,
 		limiter.Speed,
 		raw.Value(),
 		time.Now(),
@@ -1183,18 +1341,21 @@ func (r *PostgreSQLRepository) UpdateBandwidthLimiter(id int, limiter constant.B
 		&bl.Username,
 		&bl.Outbound,
 		&bl.Strategy,
-		&bl.Mode,
 		&bl.ConnectionType,
+		&bl.Mode,
+		&flowKeys,
 		&bl.Speed,
 		&bl.RawSpeed,
 		&bl.CreatedAt,
 		&bl.UpdatedAt,
 	)
+	bl.FlowKeys = []string(flowKeys)
 	return bl, err
 }
 
 func (r *PostgreSQLRepository) DeleteBandwidthLimiter(id int) (constant.BandwidthLimiter, error) {
 	var bl constant.BandwidthLimiter
+	var flowKeys stringSliceJSON
 	err := r.db.QueryRow(r.ctx, `
 		DELETE FROM bandwidth_limiters
 		WHERE id=$1
@@ -1208,8 +1369,9 @@ func (r *PostgreSQLRepository) DeleteBandwidthLimiter(id int) (constant.Bandwidt
 			username,
 			outbound,
 			strategy,
-			mode,
 			connection_type,
+			mode,
+			flow_keys,
 			speed,
 			raw_speed,
 			created_at,
@@ -1220,19 +1382,647 @@ func (r *PostgreSQLRepository) DeleteBandwidthLimiter(id int) (constant.Bandwidt
 		&bl.Username,
 		&bl.Outbound,
 		&bl.Strategy,
-		&bl.Mode,
 		&bl.ConnectionType,
+		&bl.Mode,
+		&flowKeys,
 		&bl.Speed,
 		&bl.RawSpeed,
 		&bl.CreatedAt,
 		&bl.UpdatedAt,
 	)
+	bl.FlowKeys = []string(flowKeys)
 	return bl, err
+}
+
+func (r *PostgreSQLRepository) CreateTrafficLimiter(limiter constant.TrafficLimiterCreate) (constant.TrafficLimiter, error) {
+	var tl constant.TrafficLimiter
+	tx, err := r.db.Begin(r.ctx)
+	if err != nil {
+		return tl, err
+	}
+	defer tx.Rollback(r.ctx)
+	bytesQuota, err := json.Marshal(limiter.Quota)
+	if err != nil {
+		return tl, err
+	}
+	rawQuota := &byteformats.NetworkBytesCompat{}
+	if err = rawQuota.UnmarshalJSON(bytesQuota); err != nil {
+		return tl, err
+	}
+	now := time.Now()
+	err = tx.QueryRow(
+		r.ctx, `
+		INSERT INTO traffic_limiters
+		(
+			username,
+			outbound,
+			strategy,
+			mode,
+			quota,
+			raw_quota,
+			created_at,
+			updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING
+			id,
+			username,
+			outbound,
+			strategy,
+			mode,
+			raw_used,
+			quota,
+			raw_quota,
+			CASE WHEN raw_quota = 0 THEN 0 ELSE LEAST(100, FLOOR(raw_used * 100.0 / raw_quota)::int) END AS usage,
+			created_at,
+			updated_at
+	`,
+		limiter.Username,
+		limiter.Outbound,
+		limiter.Strategy,
+		limiter.Mode,
+		limiter.Quota,
+		rawQuota.Value(),
+		now,
+		now,
+	).Scan(
+		&tl.ID,
+		&tl.Username,
+		&tl.Outbound,
+		&tl.Strategy,
+		&tl.Mode,
+		&tl.RawUsed,
+		&tl.Quota,
+		&tl.RawQuota,
+		&tl.Usage,
+		&tl.CreatedAt,
+		&tl.UpdatedAt,
+	)
+	if err != nil {
+		return tl, err
+	}
+	rows := make([][]any, len(limiter.SquadIDs))
+	for i, squadID := range limiter.SquadIDs {
+		rows[i] = []any{tl.ID, squadID}
+	}
+	_, err = tx.CopyFrom(
+		r.ctx,
+		pgx.Identifier{"traffic_limiter_to_squad"},
+		[]string{"traffic_limiter_id", "squad_id"},
+		pgx.CopyFromRows(rows),
+	)
+	if err != nil {
+		return tl, err
+	}
+	tl.SquadIDs = limiter.SquadIDs
+	err = tx.Commit(r.ctx)
+	if err != nil {
+		return tl, err
+	}
+	return tl, err
+}
+
+func (r *PostgreSQLRepository) GetTrafficLimiters(filters map[string][]string) ([]constant.TrafficLimiter, error) {
+	sb := sqlbuilder.PostgreSQL.NewSelectBuilder().
+		Select(
+			"id",
+			`ARRAY(
+				SELECT squad_id
+				FROM traffic_limiter_to_squad
+				WHERE traffic_limiter_to_squad.traffic_limiter_id = traffic_limiters.id
+			) as squad_ids`,
+			"username",
+			"outbound",
+			"strategy",
+			"mode",
+			"raw_used",
+			"quota",
+			"raw_quota",
+			"CASE WHEN raw_quota = 0 THEN 0 ELSE LEAST(100, FLOOR(raw_used * 100.0 / raw_quota)::int) END AS usage",
+			"created_at",
+			"updated_at",
+		).
+		From("traffic_limiters")
+
+	for k, v := range filters {
+		if f, ok := trafficLimiterFilters[k]; ok {
+			if err := f(sb, v); err != nil {
+				return nil, err
+			}
+		}
+	}
+	sql, args := sb.Build()
+	rows, err := r.db.Query(r.ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []constant.TrafficLimiter
+	for rows.Next() {
+		var tl constant.TrafficLimiter
+		if err := rows.Scan(
+			&tl.ID,
+			&tl.SquadIDs,
+			&tl.Username,
+			&tl.Outbound,
+			&tl.Strategy,
+			&tl.Mode,
+			&tl.RawUsed,
+			&tl.Quota,
+			&tl.RawQuota,
+			&tl.Usage,
+			&tl.CreatedAt,
+			&tl.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, tl)
+	}
+	return result, rows.Err()
+}
+
+func (r *PostgreSQLRepository) GetTrafficLimitersCount(filters map[string][]string) (int, error) {
+	sb := sqlbuilder.PostgreSQL.NewSelectBuilder().
+		Select("COUNT(*)").
+		From("traffic_limiters")
+	for k, v := range filters {
+		if f, ok := trafficLimiterFilters[k]; ok {
+			if err := f(sb, v); err != nil {
+				return 0, err
+			}
+		}
+	}
+	sql, args := sb.Build()
+	var count int
+	err := r.db.QueryRow(r.ctx, sql, args...).Scan(&count)
+	return count, err
+}
+
+func (r *PostgreSQLRepository) GetTrafficLimiter(id int) (constant.TrafficLimiter, error) {
+	var tl constant.TrafficLimiter
+	err := r.db.QueryRow(r.ctx, `
+		SELECT
+			id,
+			ARRAY(
+				SELECT squad_id
+				FROM traffic_limiter_to_squad
+				WHERE traffic_limiter_to_squad.traffic_limiter_id = traffic_limiters.id
+			) as squad_ids,
+			username,
+			outbound,
+			strategy,
+			mode,
+			raw_used,
+			quota,
+			raw_quota,
+			CASE WHEN raw_quota = 0 THEN 0 ELSE LEAST(100, FLOOR(raw_used * 100.0 / raw_quota)::int) END AS usage,
+			created_at,
+			updated_at
+		FROM traffic_limiters
+		WHERE id=$1
+	`, id).Scan(
+		&tl.ID,
+		&tl.SquadIDs,
+		&tl.Username,
+		&tl.Outbound,
+		&tl.Strategy,
+		&tl.Mode,
+		&tl.RawUsed,
+		&tl.Quota,
+		&tl.RawQuota,
+		&tl.Usage,
+		&tl.CreatedAt,
+		&tl.UpdatedAt,
+	)
+	return tl, err
+}
+
+func (r *PostgreSQLRepository) UpdateTrafficLimiter(id int, limiter constant.TrafficLimiterUpdate) (constant.TrafficLimiter, error) {
+	var tl constant.TrafficLimiter
+	bytesQuota, err := json.Marshal(limiter.Quota)
+	if err != nil {
+		return tl, err
+	}
+	rawQuota := &byteformats.NetworkBytesCompat{}
+	if err = rawQuota.UnmarshalJSON(bytesQuota); err != nil {
+		return tl, err
+	}
+	err = r.db.QueryRow(
+		r.ctx, `
+		UPDATE traffic_limiters
+		SET
+			username=$1,
+			outbound=$2,
+			strategy=$3,
+			mode=$4,
+			quota=$5,
+			raw_quota=$6,
+			updated_at=$7
+		WHERE id=$8
+		RETURNING
+			id,
+			ARRAY(
+				SELECT squad_id
+				FROM traffic_limiter_to_squad
+				WHERE traffic_limiter_to_squad.traffic_limiter_id = traffic_limiters.id
+			) as squad_ids,
+			username,
+			outbound,
+			strategy,
+			mode,
+			raw_used,
+			quota,
+			raw_quota,
+			CASE WHEN raw_quota = 0 THEN 0 ELSE LEAST(100, FLOOR(raw_used * 100.0 / raw_quota)::int) END AS usage,
+			created_at,
+			updated_at
+	`,
+		limiter.Username,
+		limiter.Outbound,
+		limiter.Strategy,
+		limiter.Mode,
+		limiter.Quota,
+		rawQuota.Value(),
+		time.Now(),
+		id,
+	).Scan(
+		&tl.ID,
+		&tl.SquadIDs,
+		&tl.Username,
+		&tl.Outbound,
+		&tl.Strategy,
+		&tl.Mode,
+		&tl.RawUsed,
+		&tl.Quota,
+		&tl.RawQuota,
+		&tl.Usage,
+		&tl.CreatedAt,
+		&tl.UpdatedAt,
+	)
+	return tl, err
+}
+
+func (r *PostgreSQLRepository) UpdateTrafficLimiterUsed(id int, current uint64) (constant.TrafficLimiter, error) {
+	var tl constant.TrafficLimiter
+	err := r.db.QueryRow(
+		r.ctx, `
+		UPDATE traffic_limiters
+		SET
+			raw_used=$1,
+			updated_at=$2
+		WHERE id=$3
+		RETURNING
+			id,
+			ARRAY(
+				SELECT squad_id
+				FROM traffic_limiter_to_squad
+				WHERE traffic_limiter_to_squad.traffic_limiter_id = traffic_limiters.id
+			) as squad_ids,
+			username,
+			outbound,
+			strategy,
+			mode,
+			raw_used,
+			quota,
+			raw_quota,
+			CASE WHEN raw_quota = 0 THEN 0 ELSE LEAST(100, FLOOR(raw_used * 100.0 / raw_quota)::int) END AS usage,
+			created_at,
+			updated_at
+	`,
+		current,
+		time.Now(),
+		id,
+	).Scan(
+		&tl.ID,
+		&tl.SquadIDs,
+		&tl.Username,
+		&tl.Outbound,
+		&tl.Strategy,
+		&tl.Mode,
+		&tl.RawUsed,
+		&tl.Quota,
+		&tl.RawQuota,
+		&tl.Usage,
+		&tl.CreatedAt,
+		&tl.UpdatedAt,
+	)
+	return tl, err
+}
+
+func (r *PostgreSQLRepository) DeleteTrafficLimiter(id int) (constant.TrafficLimiter, error) {
+	var tl constant.TrafficLimiter
+	err := r.db.QueryRow(r.ctx, `
+		DELETE FROM traffic_limiters
+		WHERE id=$1
+		RETURNING
+			id,
+			ARRAY(
+				SELECT squad_id
+				FROM traffic_limiter_to_squad
+				WHERE traffic_limiter_to_squad.traffic_limiter_id = traffic_limiters.id
+			) as squad_ids,
+			username,
+			outbound,
+			strategy,
+			mode,
+			raw_used,
+			quota,
+			raw_quota,
+			CASE WHEN raw_quota = 0 THEN 0 ELSE LEAST(100, FLOOR(raw_used * 100.0 / raw_quota)::int) END AS usage,
+			created_at,
+			updated_at
+	`, id).Scan(
+		&tl.ID,
+		&tl.SquadIDs,
+		&tl.Username,
+		&tl.Outbound,
+		&tl.Strategy,
+		&tl.Mode,
+		&tl.RawUsed,
+		&tl.Quota,
+		&tl.RawQuota,
+		&tl.Usage,
+		&tl.CreatedAt,
+		&tl.UpdatedAt,
+	)
+	return tl, err
+}
+
+func (r *PostgreSQLRepository) CreateRateLimiter(limiter constant.RateLimiterCreate) (constant.RateLimiter, error) {
+	var rl constant.RateLimiter
+	tx, err := r.db.Begin(r.ctx)
+	if err != nil {
+		return rl, err
+	}
+	defer tx.Rollback(r.ctx)
+	now := time.Now()
+	err = tx.QueryRow(
+		r.ctx, `
+		INSERT INTO rate_limiters
+		(
+			username,
+			outbound,
+			strategy,
+			connection_type,
+			count,
+			interval,
+			created_at,
+			updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING
+			id,
+			username,
+			outbound,
+			strategy,
+			connection_type,
+			count,
+			interval,
+			created_at,
+			updated_at
+	`,
+		limiter.Username,
+		limiter.Outbound,
+		limiter.Strategy,
+		limiter.ConnectionType,
+		limiter.Count,
+		limiter.Interval,
+		now,
+		now,
+	).Scan(
+		&rl.ID,
+		&rl.Username,
+		&rl.Outbound,
+		&rl.Strategy,
+		&rl.ConnectionType,
+		&rl.Count,
+		&rl.Interval,
+		&rl.CreatedAt,
+		&rl.UpdatedAt,
+	)
+	if err != nil {
+		return rl, err
+	}
+	rows := make([][]any, len(limiter.SquadIDs))
+	for i, squadID := range limiter.SquadIDs {
+		rows[i] = []any{rl.ID, squadID}
+	}
+	_, err = tx.CopyFrom(
+		r.ctx,
+		pgx.Identifier{"rate_limiter_to_squad"},
+		[]string{"rate_limiter_id", "squad_id"},
+		pgx.CopyFromRows(rows),
+	)
+	if err != nil {
+		return rl, err
+	}
+	rl.SquadIDs = limiter.SquadIDs
+	err = tx.Commit(r.ctx)
+	if err != nil {
+		return rl, err
+	}
+	return rl, err
+}
+
+func (r *PostgreSQLRepository) GetRateLimiters(filters map[string][]string) ([]constant.RateLimiter, error) {
+	sb := sqlbuilder.PostgreSQL.NewSelectBuilder().
+		Select(
+			"id",
+			`ARRAY(
+				SELECT squad_id
+				FROM rate_limiter_to_squad
+				WHERE rate_limiter_to_squad.rate_limiter_id = rate_limiters.id
+			) as squad_ids`,
+			"username",
+			"outbound",
+			"strategy",
+			"connection_type",
+			"count",
+			"interval",
+			"created_at",
+			"updated_at",
+		).
+		From("rate_limiters")
+
+	for k, v := range filters {
+		if f, ok := rateLimiterFilters[k]; ok {
+			if err := f(sb, v); err != nil {
+				return nil, err
+			}
+		}
+	}
+	sql, args := sb.Build()
+	rows, err := r.db.Query(r.ctx, sql, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []constant.RateLimiter
+	for rows.Next() {
+		var rl constant.RateLimiter
+		if err := rows.Scan(
+			&rl.ID,
+			&rl.SquadIDs,
+			&rl.Username,
+			&rl.Outbound,
+			&rl.Strategy,
+			&rl.ConnectionType,
+			&rl.Count,
+			&rl.Interval,
+			&rl.CreatedAt,
+			&rl.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, rl)
+	}
+	return result, rows.Err()
+}
+
+func (r *PostgreSQLRepository) GetRateLimitersCount(filters map[string][]string) (int, error) {
+	sb := sqlbuilder.PostgreSQL.NewSelectBuilder().
+		Select("COUNT(*)").
+		From("rate_limiters")
+	for k, v := range filters {
+		if f, ok := rateLimiterFilters[k]; ok {
+			if err := f(sb, v); err != nil {
+				return 0, err
+			}
+		}
+	}
+	sql, args := sb.Build()
+	var count int
+	err := r.db.QueryRow(r.ctx, sql, args...).Scan(&count)
+	return count, err
+}
+
+func (r *PostgreSQLRepository) GetRateLimiter(id int) (constant.RateLimiter, error) {
+	var rl constant.RateLimiter
+	err := r.db.QueryRow(r.ctx, `
+		SELECT
+			id,
+			ARRAY(
+				SELECT squad_id
+				FROM rate_limiter_to_squad
+				WHERE rate_limiter_to_squad.rate_limiter_id = rate_limiters.id
+			) as squad_ids,
+			username,
+			outbound,
+			strategy,
+			connection_type,
+			count,
+			interval,
+			created_at,
+			updated_at
+		FROM rate_limiters
+		WHERE id=$1
+	`, id).Scan(
+		&rl.ID,
+		&rl.SquadIDs,
+		&rl.Username,
+		&rl.Outbound,
+		&rl.Strategy,
+		&rl.ConnectionType,
+		&rl.Count,
+		&rl.Interval,
+		&rl.CreatedAt,
+		&rl.UpdatedAt,
+	)
+	return rl, err
+}
+
+func (r *PostgreSQLRepository) UpdateRateLimiter(id int, limiter constant.RateLimiterUpdate) (constant.RateLimiter, error) {
+	var rl constant.RateLimiter
+	err := r.db.QueryRow(
+		r.ctx, `
+		UPDATE rate_limiters
+		SET
+			username=$1,
+			outbound=$2,
+			strategy=$3,
+			connection_type=$4,
+			count=$5,
+			interval=$6,
+			updated_at=$7
+		WHERE id=$8
+		RETURNING
+			id,
+			ARRAY(
+				SELECT squad_id
+				FROM rate_limiter_to_squad
+				WHERE rate_limiter_to_squad.rate_limiter_id = rate_limiters.id
+			) as squad_ids,
+			username,
+			outbound,
+			strategy,
+			connection_type,
+			count,
+			interval,
+			created_at,
+			updated_at
+	`,
+		limiter.Username,
+		limiter.Outbound,
+		limiter.Strategy,
+		limiter.ConnectionType,
+		limiter.Count,
+		limiter.Interval,
+		time.Now(),
+		id,
+	).Scan(
+		&rl.ID,
+		&rl.SquadIDs,
+		&rl.Username,
+		&rl.Outbound,
+		&rl.Strategy,
+		&rl.ConnectionType,
+		&rl.Count,
+		&rl.Interval,
+		&rl.CreatedAt,
+		&rl.UpdatedAt,
+	)
+	return rl, err
+}
+
+func (r *PostgreSQLRepository) DeleteRateLimiter(id int) (constant.RateLimiter, error) {
+	var rl constant.RateLimiter
+	err := r.db.QueryRow(r.ctx, `
+		DELETE FROM rate_limiters
+		WHERE id=$1
+		RETURNING
+			id,
+			ARRAY(
+				SELECT squad_id
+				FROM rate_limiter_to_squad
+				WHERE rate_limiter_to_squad.rate_limiter_id = rate_limiters.id
+			) as squad_ids,
+			username,
+			outbound,
+			strategy,
+			connection_type,
+			count,
+			interval,
+			created_at,
+			updated_at
+	`, id).Scan(
+		&rl.ID,
+		&rl.SquadIDs,
+		&rl.Username,
+		&rl.Outbound,
+		&rl.Strategy,
+		&rl.ConnectionType,
+		&rl.Count,
+		&rl.Interval,
+		&rl.CreatedAt,
+		&rl.UpdatedAt,
+	)
+	return rl, err
 }
 
 func init() {
 	squadFilters = map[string]Filter{
 		"id":               EqualFilter("id"),
+		"id_in":            InFilter("id"),
 		"pk":               EqualFilter("id"),
 		"name":             EqualFilter("name"),
 		"created_at_start": GreaterThanFilter("created_at"),
@@ -1287,8 +2077,8 @@ func init() {
 			"user_to_squad.squad_id",
 		),
 		"username":         EqualFilter("username"),
-		"type":             EqualFilter("type"),
 		"inbound":          EqualFilter("inbound"),
+		"type":             EqualFilter("type"),
 		"created_at_start": GreaterThanFilter("created_at"),
 		"created_at_end":   LessThanFilter("created_at"),
 		"updated_at_start": GreaterThanFilter("updated_at"),
@@ -1358,6 +2148,71 @@ func init() {
 		"updated_at_end":   LessThanFilter("updated_at"),
 		"sort_asc":         ReplacedSortAscFilter(map[string]string{"down": "raw_down", "up": "raw_up"}),
 		"sort_desc":        ReplacedSortDescFilter(map[string]string{"down": "raw_down", "up": "raw_up"}),
+		"offset":           OffsetFilter(),
+		"limit":            LimitFilter(),
+	}
+	trafficLimiterFilters = map[string]Filter{
+		"id": EqualFilter("id"),
+		"pk": EqualFilter("id"),
+		"squad_id_in": ExistsAndWhereInFilter(
+			sqlbuilder.PostgreSQL.NewSelectBuilder().
+				Select(
+					"squad_id",
+				).
+				Where(
+					"traffic_limiter_to_squad.traffic_limiter_id = traffic_limiters.id",
+				).
+				From(
+					"traffic_limiter_to_squad",
+				),
+			"traffic_limiter_to_squad.squad_id",
+		),
+		"username":         EqualFilter("username"),
+		"outbound":         EqualFilter("outbound"),
+		"strategy":         EqualFilter("strategy"),
+		"mode":             EqualFilter("mode"),
+		"used_start":    SpeedGreaterEqualThanFilter("raw_used"),
+		"used_end":      SpeedLessEqualThanFilter("raw_used"),
+		"quota_start":      SpeedGreaterEqualThanFilter("raw_quota"),
+		"quota_end":        SpeedLessEqualThanFilter("raw_quota"),
+		"created_at_start": GreaterThanFilter("created_at"),
+		"created_at_end":   LessThanFilter("created_at"),
+		"updated_at_start": GreaterThanFilter("updated_at"),
+		"updated_at_end":   LessThanFilter("updated_at"),
+		"sort_asc":         ReplacedSortAscFilter(map[string]string{"used": "raw_used", "quota": "raw_quota"}),
+		"sort_desc":        ReplacedSortDescFilter(map[string]string{"used": "raw_used", "quota": "raw_quota"}),
+		"offset":           OffsetFilter(),
+		"limit":            LimitFilter(),
+	}
+	rateLimiterFilters = map[string]Filter{
+		"id": EqualFilter("id"),
+		"pk": EqualFilter("id"),
+		"squad_id_in": ExistsAndWhereInFilter(
+			sqlbuilder.PostgreSQL.NewSelectBuilder().
+				Select(
+					"squad_id",
+				).
+				Where(
+					"rate_limiter_to_squad.rate_limiter_id = rate_limiters.id",
+				).
+				From(
+					"rate_limiter_to_squad",
+				),
+			"rate_limiter_to_squad.squad_id",
+		),
+		"strategy":         EqualFilter("strategy"),
+		"username":         EqualFilter("username"),
+		"outbound":         EqualFilter("outbound"),
+		"connection_type":  EqualFilter("connection_type"),
+		"interval":         EqualFilter("interval"),
+		"count_start":      GreaterEqualThanFilter("count"),
+		"count_end":        LessEqualThanFilter("count"),
+		"created_at_start": GreaterThanFilter("created_at"),
+		"created_at_end":   LessThanFilter("created_at"),
+		"updated_at_start": GreaterThanFilter("updated_at"),
+		"updated_at_end":   LessThanFilter("updated_at"),
+		"sort_asc":         SortAscFilter(),
+		"sort_desc":        SortDescFilter(),
 		"offset":           OffsetFilter(),
 		"limit":            LimitFilter(),
 	}

@@ -6,7 +6,7 @@ type Repository interface {
 	GetSquadsCount(filters map[string][]string) (int, error)
 	GetSquad(id int) (Squad, error)
 	UpdateSquad(id int, user SquadUpdate) (Squad, error)
-	DeleteSquad(id int) (Squad, error)
+	DeleteSquad(id int) (DeletedSquad, error)
 
 	CreateNode(node NodeCreate) (Node, error)
 	GetNodes(filters map[string][]string) ([]Node, error)
@@ -35,4 +35,19 @@ type Repository interface {
 	GetBandwidthLimiter(id int) (BandwidthLimiter, error)
 	UpdateBandwidthLimiter(id int, limiter BandwidthLimiterUpdate) (BandwidthLimiter, error)
 	DeleteBandwidthLimiter(id int) (BandwidthLimiter, error)
+
+	CreateTrafficLimiter(limiter TrafficLimiterCreate) (TrafficLimiter, error)
+	GetTrafficLimiters(filters map[string][]string) ([]TrafficLimiter, error)
+	GetTrafficLimitersCount(filters map[string][]string) (int, error)
+	GetTrafficLimiter(id int) (TrafficLimiter, error)
+	UpdateTrafficLimiter(id int, limiter TrafficLimiterUpdate) (TrafficLimiter, error)
+	UpdateTrafficLimiterUsed(id int, used uint64) (TrafficLimiter, error)
+	DeleteTrafficLimiter(id int) (TrafficLimiter, error)
+
+	CreateRateLimiter(limiter RateLimiterCreate) (RateLimiter, error)
+	GetRateLimiters(filters map[string][]string) ([]RateLimiter, error)
+	GetRateLimitersCount(filters map[string][]string) (int, error)
+	GetRateLimiter(id int) (RateLimiter, error)
+	UpdateRateLimiter(id int, limiter RateLimiterUpdate) (RateLimiter, error)
+	DeleteRateLimiter(id int) (RateLimiter, error)
 }

@@ -4,37 +4,45 @@ Sing-box with extended features.
 
 ## 🔥 Features
 
-### Protocols
-- WARP
-- MASQUE
-- MTProxy
-- Mieru
-- VPN
-- Bond
-- Fallback
+### Outbounds
+- **WARP** — Cloudflare WARP integration through WireGuard
+- **MASQUE** — Cloudflare MASQUE proxy over QUIC / HTTP-2
+- **MTProxy** — Telegram MTProxy server with FakeTLS and domain fronting
+- **Mieru** — Secure, hard to classify, hard to probe network protocol
+- **VPN** — Routed tunnel over any TCP sing-box protocol
+- **Bond** — Link aggregation for increasing throughput
+- **Fallback** — Outbound group with priority-based switching
+- **Failover** — Automatic outbound switching with session recovery for high availability
+
+### DNS
+- **SDNS (DNSCrypt)** — Encrypted DNS queries for enhanced privacy
+- **DNS Fallback** — Sequential / parallel queries across upstream resolvers
 
 ### Limiters
-- Bandwidth Limiter
-- Connection Limiter
+- **Bandwidth Limiter** — Upload / download / bidirectional rate limiting
+- **Connection Limiter** — Concurrent connection control
+- **Traffic Limiter** — Per-user traffic quotas
+- **Rate Limiter** — Request rate limiting
 
 ### Encryption & Obfuscation
-- Amnezia 2.0
-- VLESS encryption
+- **Amnezia 2.0** — WireGuard traffic obfuscation
+- **VLESS encryption** — XRAY encryption for VLESS protocol
 
 ### Transports
-- mKCP
-- XHTTP
+- **mKCP** — Reliable UDP-based transport
+- **XHTTP** — Modern XRAY transport
 
 ### Services
-- Admin Panel
-- Manager
-- Node Manager
+- **Admin Panel** — Web-based management interface
+- **Manager** — Management service for configuring users, nodes, limiters
+- **Manager API (HTTP/gRPC)** — HTTP and gRPC API for the Manager
+- **Node Manager API** — Service for connecting nodes to remote manager
 
 ### Miscellaneous
-- Link parser
-- SDNS (DNSCrypt)
-- Extended WireGuard options
-- Unified Delay
+- **Providers** — Outbound subscriptions from local files, inline lists, or remote URLs (sing-box JSON, Clash YAML, SIP008, share links)
+- **Link Parser** — Outbound configured from a share link (VLESS, VMess, Shadowsocks, Trojan, Hysteria, Hysteria2, TUIC)
+- **Extended WireGuard options** — Advanced configuration capabilities
+- **Unified Delay** — Unified latency measurement
 
 ## 📚 Examples
 

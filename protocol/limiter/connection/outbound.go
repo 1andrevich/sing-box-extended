@@ -138,6 +138,7 @@ func (h *Outbound) NewConnectionEx(ctx context.Context, conn net.Conn, metadata 
 	limiterOnClose, lockCtx, err := h.strategy.request(ctx, &metadata)
 	if err != nil {
 		h.logger.ErrorContext(ctx, err)
+		N.CloseOnHandshakeFailure(conn, onClose, err)
 		return
 	}
 	conn = newConnWithCloseHandlerFunc(conn, limiterOnClose)
@@ -154,6 +155,7 @@ func (h *Outbound) NewPacketConnectionEx(ctx context.Context, conn N.PacketConn,
 	limiterOnClose, lockCtx, err := h.strategy.request(ctx, &metadata)
 	if err != nil {
 		h.logger.ErrorContext(ctx, err)
+		N.CloseOnHandshakeFailure(conn, onClose, err)
 		return
 	}
 	conn = bufio.NewPacketConn(newPacketConnWithCloseHandlerFunc(bufio.NewNetPacketConn(conn), limiterOnClose))

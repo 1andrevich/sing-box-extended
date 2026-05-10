@@ -13,6 +13,14 @@ type ConnectedNode interface {
 	UpdateBandwidthLimiters(limiter []BandwidthLimiter)
 	DeleteBandwidthLimiter(limiter BandwidthLimiter)
 
+	UpdateTrafficLimiter(limiter TrafficLimiter)
+	UpdateTrafficLimiters(limiter []TrafficLimiter)
+	DeleteTrafficLimiter(limiter TrafficLimiter)
+
+	UpdateRateLimiter(limiter RateLimiter)
+	UpdateRateLimiters(limiter []RateLimiter)
+	DeleteRateLimiter(limiter RateLimiter)
+
 	IsLocal() bool
 	IsOnline() bool
 

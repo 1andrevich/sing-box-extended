@@ -29,6 +29,7 @@ const (
 	DNSTypeDHCP        = "dhcp"
 	DNSTypeTailscale   = "tailscale"
 	DNSTypeSDNS        = "sdns"
+	DNSTypeFallback    = "fallback"
 )
 
 const (

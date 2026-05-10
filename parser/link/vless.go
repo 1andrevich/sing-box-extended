@@ -1,6 +1,7 @@
 package link
 
 import (
+	"encoding/json"
 	"net/url"
 	"strings"
 
@@ -65,6 +66,83 @@ func parseVLESSLink(link string) (option.Outbound, error) {
 				Transport.Type = C.V2RayTransportTypeGRPC
 				if serviceName, exists := proxy["serviceName"]; exists && serviceName != "" {
 					Transport.GRPCOptions.ServiceName = serviceName
+				}
+			case "xhttp":
+				Transport.Type = C.V2RayTransportTypeXHTTP
+				if alpn, exists := proxy["alpn"]; exists && alpn != "" {
+					TLSOptions.ALPN = []string{alpn}
+				}
+				TLSOptions.ALPN = []string{"h2", "http/1.1"}
+				if host, exists := proxy["host"]; exists && host != "" {
+					Transport.XHTTPOptions.Host = host
+				}
+				if path, exists := proxy["path"]; exists && path != "" {
+					Transport.XHTTPOptions.Path = path
+				}
+				if mode, exists := proxy["mode"]; exists && mode != "" {
+					Transport.XHTTPOptions.Mode = mode
+				}
+				if extra, exists := proxy["extra"]; exists && extra != "" {
+					decodedExtra, err := common.DecodeBase64URLSafe(extra)
+					if err == nil {
+						var extraOptions map[string]interface{}
+						if json.Unmarshal([]byte(decodedExtra), &extraOptions) == nil {
+							if xmux, ok := extraOptions["xmux"].(map[string]interface{}); ok {
+								Transport.XHTTPOptions.Xmux = &option.V2RayXHTTPXmuxOptions{}
+								if val, ok := xmux["cMaxReuseTimes"].(string); ok {
+									if r, err := common.ParseXHTTPRange(val); err == nil {
+										Transport.XHTTPOptions.Xmux.CMaxReuseTimes = r
+									}
+								}
+								if val, ok := xmux["maxConcurrency"].(string); ok {
+									if r, err := common.ParseXHTTPRange(val); err == nil {
+										Transport.XHTTPOptions.Xmux.MaxConcurrency = r
+									}
+								}
+								if val, ok := xmux["maxConnections"].(string); ok {
+									if r, err := common.ParseXHTTPRange(val); err == nil {
+										Transport.XHTTPOptions.Xmux.MaxConnections = r
+									}
+								}
+								if val, ok := xmux["hKeepAlivePeriod"].(string); ok {
+									Transport.XHTTPOptions.Xmux.HKeepAlivePeriod = common.StringToType[int64](val)
+								}
+								if val, ok := xmux["hMaxRequestTimes"].(string); ok {
+									if r, err := common.ParseXHTTPRange(val); err == nil {
+										Transport.XHTTPOptions.Xmux.HMaxRequestTimes = r
+									}
+								}
+								if val, ok := xmux["hMaxReusableSecs"].(string); ok {
+									if r, err := common.ParseXHTTPRange(val); err == nil {
+										Transport.XHTTPOptions.Xmux.HMaxReusableSecs = r
+									}
+								}
+							}
+							if val, ok := extraOptions["noGRPCHeader"].(bool); ok {
+								Transport.XHTTPOptions.NoGRPCHeader = val
+							}
+							if val, ok := extraOptions["xPaddingBytes"].(string); ok {
+								if r, err := common.ParseXHTTPRange(val); err == nil {
+									Transport.XHTTPOptions.XPaddingBytes = r
+								}
+							}
+							if val, ok := extraOptions["scMaxEachPostBytes"].(string); ok {
+								if r, err := common.ParseXHTTPRange(val); err == nil {
+									Transport.XHTTPOptions.ScMaxEachPostBytes = &r
+								}
+							}
+							if val, ok := extraOptions["scMinPostsIntervalMs"].(string); ok {
+								if r, err := common.ParseXHTTPRange(val); err == nil {
+									Transport.XHTTPOptions.ScMinPostsIntervalMs = &r
+								}
+							}
+							if val, ok := extraOptions["scStreamUpServerSecs"].(string); ok {
+								if r, err := common.ParseXHTTPRange(val); err == nil {
+									Transport.XHTTPOptions.ScStreamUpServerSecs = &r
+								}
+							}
+						}
+					}
 				}
 			default:
 				continue

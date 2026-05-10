@@ -26,31 +26,31 @@
         "enabled": true,
         "server_name": "example.com",
         "alpn": "h2", // h3 for QUIC
-        "certificate_path": "/path/to/fullchain.pem",
-        "key_path": "/path/to/privkey.pem"
       },
       "transport": {
         "type": "xhttp",
-        "mode": "stream-up",
+        "mode": "stream-up", // packet-up, stream-one
+        "host": "",
         "path": "/xhttp",
+        "headers": {},
         "x_padding_bytes": "100-1000",
         "no_sse_header": false, // server only
         "sc_max_each_post_bytes": 1000000, // packet-up only
         "sc_max_buffered_posts": 30, // packet-up, server only
         "sc_stream_up_server_secs": "20-80", // stream-up, server only
+        "server_max_header_bytes": 8192,
+        "trusted_x_forwarded_for": [],
         "x_padding_obfs_mode": false,
         "x_padding_key": "",
         "x_padding_header": "",
         "x_padding_placement": "",
         "x_padding_method": "",
-        "uplink_http_method": "",
         "session_placement": "",
         "session_key": "",
         "seq_placement": "",
         "seq_key": "",
         "uplink_data_placement": "",
         "uplink_data_key": "",
-        "uplink_chunk_size": 0,
       }
     }
   ],

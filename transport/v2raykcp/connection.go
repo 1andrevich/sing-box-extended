@@ -183,12 +183,14 @@ func NewConnection(meta ConnMetadata, writer PacketWriter, closer io.Closer, con
 			return !isTerminating() && (conn.sendingWorker.UpdateNecessary() || conn.receivingWorker.UpdateNecessary())
 		},
 		isTerminating,
-		conn.updateTask)
+		conn.updateTask,
+	)
 	conn.pingUpdater = NewUpdater(
 		5000,
 		func() bool { return !isTerminated() },
 		isTerminated,
-		conn.updateTask)
+		conn.updateTask,
+	)
 	conn.pingUpdater.WakeUp()
 
 	return conn

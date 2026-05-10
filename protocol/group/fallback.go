@@ -21,9 +21,7 @@ func RegisterFallback(registry *outbound.Registry) {
 	outbound.Register[option.FallbackOutboundOptions](registry, C.TypeFallback, NewFallback)
 }
 
-var (
-	_ adapter.OutboundGroup = (*Fallback)(nil)
-)
+var _ adapter.OutboundGroup = (*Fallback)(nil)
 
 type Fallback struct {
 	outbound.Adapter
@@ -80,7 +78,7 @@ func (s *Fallback) DialContext(ctx context.Context, network string, destination 
 	for _, outbound := range s.outbounds {
 		conn, err = outbound.DialContext(ctx, network, destination)
 		if err != nil {
-			s.logger.ErrorContext(ctx, err)
+			s.logger.InfoContext(ctx, err)
 			continue
 		}
 		s.mtx.Lock()
@@ -97,7 +95,7 @@ func (s *Fallback) ListenPacket(ctx context.Context, destination M.Socksaddr) (n
 	for _, outbound := range s.outbounds {
 		conn, err = outbound.ListenPacket(ctx, destination)
 		if err != nil {
-			s.logger.ErrorContext(ctx, err)
+			s.logger.InfoContext(ctx, err)
 			continue
 		}
 		s.mtx.Lock()

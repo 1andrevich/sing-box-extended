@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/huandu/go-sqlbuilder"
-	"github.com/sagernet/sing/common/byteformats"
+	"github.com/sagernet/sing-box/common/byteformats"
 )
 
 type Filter func(sb *sqlbuilder.SelectBuilder, value []string) error
@@ -92,6 +92,20 @@ func ExistsAndWhereInFilter(subquery *sqlbuilder.SelectBuilder, field string) Fi
 		}
 		subquery.Where(subquery.In(field, values...))
 		sb.Where(sb.Exists(subquery))
+		return nil
+	}
+}
+
+func InFilter(field string) Filter {
+	return func(sb *sqlbuilder.SelectBuilder, value []string) error {
+		if len(value) == 0 {
+			return nil
+		}
+		values := make([]interface{}, len(value))
+		for i, v := range value {
+			values[i] = v
+		}
+		sb.Where(sb.In(field, values...))
 		return nil
 	}
 }
