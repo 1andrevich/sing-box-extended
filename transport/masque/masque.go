@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
-	"net/url"
 	"strings"
 
 	connectip "github.com/Diniboy1123/connect-ip-go"
@@ -85,7 +84,9 @@ func ConnectTunnel(ctx context.Context, dialer N.Dialer, tlsConfig aTLS.Config, 
 	hconn := tr.NewClientConn(conn)
 	ipConn, rsp, err := connectip.Dial(ctx, hconn, template, "cf-connect-ip", additionalHeaders, true)
 	if err != nil {
-		if err.Error() == "CRYPTO_ERROR 0x131 (remote): tls: access denied" {
+		_ = tr.Close()
+		_ = conn.CloseWithError(0, "connect-ip dial failed")
+		if strings.Contains(err.Error(), "tls: access denied") {
 			return udpConn, nil, nil, nil, errors.New("login failed! Please double-check if your tls key and cert is enrolled in the Cloudflare Access service")
 		}
 		return udpConn, nil, nil, nil, fmt.Errorf("failed to dial connect-ip: %w", err)
@@ -138,29 +139,4 @@ func newHTTP2Client(dialer N.Dialer, baseTLSConfig aTLS.Config, endpoint *net.TC
 			},
 		},
 	}, nil
-}
-
-func authorityWithDefaultPort(u *url.URL, defaultPort string) string {
-	if u == nil {
-		return ""
-	}
-
-	host := u.Hostname()
-	if host == "" {
-		return u.Host
-	}
-
-	port := u.Port()
-	if port == "" {
-		port = defaultPort
-	}
-
-	return net.JoinHostPort(host, port)
-}
-
-func proxyDefaultPort(u *url.URL) string {
-	if u != nil && u.Scheme == "https" {
-		return "443"
-	}
-	return "80"
 }

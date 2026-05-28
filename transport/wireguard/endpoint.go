@@ -183,10 +183,10 @@ func (e *Endpoint) Start(resolve bool) error {
 		return err
 	}
 	logger := &device.Logger{
-		Verbosef: func(format string, args ...interface{}) {
+		Verbosef: func(format string, args ...any) {
 			e.options.Logger.Debug(fmt.Sprintf(strings.ToLower(format), args...))
 		},
-		Errorf: func(format string, args ...interface{}) {
+		Errorf: func(format string, args ...any) {
 			e.options.Logger.Error(fmt.Sprintf(strings.ToLower(format), args...))
 		},
 	}
@@ -198,75 +198,77 @@ func (e *Endpoint) Start(resolve bool) error {
 	}
 	wgDevice := device.NewDevice(e.options.Context, deviceInput, bind, logger, e.options.Workers, e.options.PreallocatedBuffersPerPool, e.options.DisablePauses)
 	e.tunDevice.SetDevice(wgDevice)
-	ipcConf := e.ipcConf
+	var ipcConf strings.Builder
+	ipcConf.WriteString(e.ipcConf)
 	if e.options.Amnezia != nil {
 		if e.options.Amnezia.JC > 0 {
-			ipcConf += "\njc=" + strconv.Itoa(e.options.Amnezia.JC)
+			ipcConf.WriteString("\njc=" + strconv.Itoa(e.options.Amnezia.JC))
 		}
 		if e.options.Amnezia.JMin > 0 {
-			ipcConf += "\njmin=" + strconv.Itoa(e.options.Amnezia.JMin)
+			ipcConf.WriteString("\njmin=" + strconv.Itoa(e.options.Amnezia.JMin))
 		}
 		if e.options.Amnezia.JMax > 0 {
-			ipcConf += "\njmax=" + strconv.Itoa(e.options.Amnezia.JMax)
+			ipcConf.WriteString("\njmax=" + strconv.Itoa(e.options.Amnezia.JMax))
 		}
 		if e.options.Amnezia.S1 > 0 {
-			ipcConf += "\ns1=" + strconv.Itoa(e.options.Amnezia.S1)
+			ipcConf.WriteString("\ns1=" + strconv.Itoa(e.options.Amnezia.S1))
 		}
 		if e.options.Amnezia.S2 > 0 {
-			ipcConf += "\ns2=" + strconv.Itoa(e.options.Amnezia.S2)
+			ipcConf.WriteString("\ns2=" + strconv.Itoa(e.options.Amnezia.S2))
 		}
 		if e.options.Amnezia.S3 > 0 {
-			ipcConf += "\ns3=" + strconv.Itoa(e.options.Amnezia.S3)
+			ipcConf.WriteString("\ns3=" + strconv.Itoa(e.options.Amnezia.S3))
 		}
 		if e.options.Amnezia.S4 > 0 {
-			ipcConf += "\ns4=" + strconv.Itoa(e.options.Amnezia.S4)
+			ipcConf.WriteString("\ns4=" + strconv.Itoa(e.options.Amnezia.S4))
 		}
 		if e.options.Amnezia.H1 != nil {
-			ipcConf += "\nh1=" + e.options.Amnezia.H1.String()
+			ipcConf.WriteString("\nh1=" + e.options.Amnezia.H1.String())
 		}
 		if e.options.Amnezia.H2 != nil {
-			ipcConf += "\nh2=" + e.options.Amnezia.H2.String()
+			ipcConf.WriteString("\nh2=" + e.options.Amnezia.H2.String())
 		}
 		if e.options.Amnezia.H3 != nil {
-			ipcConf += "\nh3=" + e.options.Amnezia.H3.String()
+			ipcConf.WriteString("\nh3=" + e.options.Amnezia.H3.String())
 		}
 		if e.options.Amnezia.H4 != nil {
-			ipcConf += "\nh4=" + e.options.Amnezia.H4.String()
+			ipcConf.WriteString("\nh4=" + e.options.Amnezia.H4.String())
 		}
 		if e.options.Amnezia.I1 != "" {
-			ipcConf += "\ni1=" + e.options.Amnezia.I1
+			ipcConf.WriteString("\ni1=" + e.options.Amnezia.I1)
 		}
 		if e.options.Amnezia.I2 != "" {
-			ipcConf += "\ni2=" + e.options.Amnezia.I2
+			ipcConf.WriteString("\ni2=" + e.options.Amnezia.I2)
 		}
 		if e.options.Amnezia.I3 != "" {
-			ipcConf += "\ni3=" + e.options.Amnezia.I3
+			ipcConf.WriteString("\ni3=" + e.options.Amnezia.I3)
 		}
 		if e.options.Amnezia.I4 != "" {
-			ipcConf += "\ni4=" + e.options.Amnezia.I4
+			ipcConf.WriteString("\ni4=" + e.options.Amnezia.I4)
 		}
 		if e.options.Amnezia.I5 != "" {
-			ipcConf += "\ni5=" + e.options.Amnezia.I5
+			ipcConf.WriteString("\ni5=" + e.options.Amnezia.I5)
 		}
 		if e.options.Amnezia.J1 != "" {
-			ipcConf += "\nj1=" + e.options.Amnezia.J1
+			ipcConf.WriteString("\nj1=" + e.options.Amnezia.J1)
 		}
 		if e.options.Amnezia.J2 != "" {
-			ipcConf += "\nj2=" + e.options.Amnezia.J2
+			ipcConf.WriteString("\nj2=" + e.options.Amnezia.J2)
 		}
 		if e.options.Amnezia.J3 != "" {
-			ipcConf += "\nj3=" + e.options.Amnezia.J3
+			ipcConf.WriteString("\nj3=" + e.options.Amnezia.J3)
 		}
 		if e.options.Amnezia.ITime > 0 {
-			ipcConf += "\nitime=" + strconv.FormatInt(e.options.Amnezia.ITime, 10)
+			ipcConf.WriteString("\nitime=" + strconv.FormatInt(e.options.Amnezia.ITime, 10))
 		}
 	}
 	for _, peer := range e.peers {
-		ipcConf += peer.GenerateIpcLines()
+		ipcConf.WriteString(peer.GenerateIpcLines())
 	}
-	err = wgDevice.IpcSet(ipcConf)
+	err = wgDevice.IpcSet(ipcConf.String())
 	if err != nil {
-		return E.Cause(err, "setup wireguard: \n", ipcConf)
+		wgDevice.Close()
+		return E.Cause(err, "setup wireguard: \n", ipcConf.String())
 	}
 	e.device = wgDevice
 	e.pause = service.FromContext[pause.Manager](e.options.Context)
@@ -294,10 +296,12 @@ func (e *Endpoint) ListenPacket(ctx context.Context, destination M.Socksaddr) (n
 func (e *Endpoint) Close() error {
 	if e.pauseCallback != nil {
 		e.pause.UnregisterCallback(e.pauseCallback)
+		e.pauseCallback = nil
 	}
 	if e.device != nil {
 		e.device.Down()
 		e.device.Close()
+		e.device = nil
 	}
 	return nil
 }
@@ -336,18 +340,19 @@ type peerConfig struct {
 }
 
 func (c peerConfig) GenerateIpcLines() string {
-	ipcLines := "\npublic_key=" + c.publicKeyHex
+	var ipcLines strings.Builder
+	ipcLines.WriteString("\npublic_key=" + c.publicKeyHex)
 	if c.endpoint.IsValid() {
-		ipcLines += "\nendpoint=" + c.endpoint.String()
+		ipcLines.WriteString("\nendpoint=" + c.endpoint.String())
 	}
 	if c.preSharedKeyHex != "" {
-		ipcLines += "\npreshared_key=" + c.preSharedKeyHex
+		ipcLines.WriteString("\npreshared_key=" + c.preSharedKeyHex)
 	}
 	for _, allowedIP := range c.allowedIPs {
-		ipcLines += "\nallowed_ip=" + allowedIP.String()
+		ipcLines.WriteString("\nallowed_ip=" + allowedIP.String())
 	}
 	if c.keepalive > 0 {
-		ipcLines += "\npersistent_keepalive_interval=" + F.ToString(c.keepalive)
+		ipcLines.WriteString("\npersistent_keepalive_interval=" + F.ToString(c.keepalive))
 	}
-	return ipcLines
+	return ipcLines.String()
 }

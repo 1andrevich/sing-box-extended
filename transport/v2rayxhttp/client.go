@@ -192,6 +192,8 @@ func (c *Client) DialContext(ctx context.Context) (net.Conn, error) {
 	go func() {
 		var seq int64
 		var lastWrite time.Time
+		dynamicHTTPClient := httpClient
+		dynamicXmuxClient := xmuxClient
 		for {
 			// by offloading the uploads into a buffered pipe, multiple conn.Write
 			// calls get automatically batched together into larger POST requests.
@@ -219,12 +221,12 @@ func (c *Client) DialContext(ctx context.Context) (net.Conn, error) {
 					time.Sleep(time.Duration(scMinPostsIntervalMs.Rand())*time.Millisecond - time.Since(lastWrite))
 				}
 				lastWrite = time.Now()
-				if xmuxClient != nil && (xmuxClient.LeftRequests.Add(-1) <= 0 ||
-					(xmuxClient.UnreusableAt != time.Time{} && lastWrite.After(xmuxClient.UnreusableAt))) {
-					httpClient, xmuxClient = c.getHTTPClient()
+				if dynamicXmuxClient != nil && (dynamicXmuxClient.LeftRequests.Add(-1) <= 0 ||
+					(dynamicXmuxClient.UnreusableAt != time.Time{} && lastWrite.After(dynamicXmuxClient.UnreusableAt))) {
+					dynamicHTTPClient, dynamicXmuxClient = c.getHTTPClient()
 				}
-				go func() {
-					err := httpClient.PostPacket(
+				go func(hClient DialerClient) {
+					err := hClient.PostPacket(
 						ctx,
 						requestURL.String(),
 						sessionId,
@@ -236,8 +238,8 @@ func (c *Client) DialContext(ctx context.Context) (net.Conn, error) {
 						uploadPipeReader.Interrupt()
 						doSplit.Store(false)
 					}
-				}()
-				if _, ok := httpClient.(*DefaultDialerClient); ok {
+				}(dynamicHTTPClient)
+				if _, ok := dynamicHTTPClient.(*DefaultDialerClient); ok {
 					<-wroteRequest.Wait()
 				}
 			}

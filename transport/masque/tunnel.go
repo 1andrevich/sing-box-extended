@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	connectip "github.com/Diniboy1123/connect-ip-go"
+	"github.com/sagernet/quic-go/http3"
 	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/sagernet/sing/common/logger"
 	M "github.com/sagernet/sing/common/metadata"
@@ -25,6 +27,12 @@ type Tunnel struct {
 	options      TunnelOptions
 	tunDevice    Device
 	tunnelDevice TunnelDevice
+
+	udpConn net.PacketConn
+	tr      *http3.Transport
+	ipConn  *connectip.Conn
+
+	mtx sync.Mutex
 }
 
 func NewTunnel(ctx context.Context, logger logger.ContextLogger, options TunnelOptions) (*Tunnel, error) {
@@ -55,7 +63,7 @@ func (e *Tunnel) Start(resolve bool) error {
 		if err != nil {
 			return err
 		}
-		go e.MaintainTunnel()
+		go e.maintainTunnel()
 	}
 	return nil
 }
@@ -75,19 +83,95 @@ func (e *Tunnel) ListenPacket(ctx context.Context, destination M.Socksaddr) (net
 }
 
 func (e *Tunnel) Close() error {
+	e.mtx.Lock()
+	defer e.mtx.Unlock()
+	if e.ipConn != nil {
+		e.ipConn.Close()
+		if e.udpConn != nil {
+			e.udpConn.Close()
+		}
+		if e.tr != nil {
+			e.tr.Close()
+		}
+		e.ipConn = nil
+	}
 	return e.tunDevice.Close()
 }
 
-func (e *Tunnel) MaintainTunnel() {
-	packetBufferPool := NewNetBuffer(1280)
+func (e *Tunnel) maintainTunnel() {
+	go func() {
+		buf := make([]byte, 1280)
+		for e.ctx.Err() == nil {
+			n, err := e.tunnelDevice.ReadPacket(buf)
+			if err != nil {
+				e.logger.ErrorContext(e.ctx, fmt.Errorf("failed to read from TUN device: %v", err))
+				continue
+			}
+			ipConn, err := e.getIpConn()
+			if err != nil {
+				return
+			}
+			icmp, err := ipConn.WritePacket(buf[:n])
+			if err != nil {
+				if errors.As(err, new(*connectip.CloseError)) {
+					if ok := e.closeIpConn(ipConn); ok {
+						e.logger.ErrorContext(e.ctx, fmt.Errorf("connection closed while writing to IP connection: %w", err))
+					}
+					continue
+				}
+				e.logger.ErrorContext(e.ctx, fmt.Errorf("Error writing to IP connection: %v, continuing...", err))
+				continue
+			}
+			if len(icmp) > 0 {
+				if err := e.tunnelDevice.WritePacket(icmp); err != nil {
+					if errors.As(err, new(*connectip.CloseError)) {
+						e.logger.ErrorContext(e.ctx, fmt.Errorf("connection closed while writing ICMP to TUN device: %v", err))
+						continue
+					}
+					e.logger.ErrorContext(e.ctx, fmt.Errorf("Error writing ICMP to TUN device: %v, continuing...", err))
+				}
+			}
+		}
+	}()
+	go func() {
+		buf := make([]byte, 1280)
+		for e.ctx.Err() == nil {
+			ipConn, err := e.getIpConn()
+			if err != nil {
+				return
+			}
+			n, err := ipConn.ReadPacket(buf, true)
+			if err != nil {
+				if e.options.UseHTTP2 || errors.As(err, new(*connectip.CloseError)) {
+					if ok := e.closeIpConn(ipConn); ok {
+						e.logger.ErrorContext(e.ctx, fmt.Errorf("connection closed while reading from IP connection: %v", err))
+					}
+					continue
+				}
+				e.logger.ErrorContext(e.ctx, fmt.Errorf("Error reading from IP connection: %v, continuine...", err))
+				continue
+			}
+			if err := e.tunnelDevice.WritePacket(buf[:n]); err != nil {
+				continue
+			}
+		}
+	}()
+	<-e.ctx.Done()
+}
+
+func (e *Tunnel) getIpConn() (*connectip.Conn, error) {
+	e.mtx.Lock()
+	defer e.mtx.Unlock()
+	if e.ctx.Err() != nil {
+		return nil, e.ctx.Err()
+	}
+	if e.ipConn != nil {
+		return e.ipConn, nil
+	}
+	e.logger.InfoContext(e.ctx, "Establishing MASQUE connection to ", e.options.Endpoint)
 	timer := time.NewTimer(0)
 	defer timer.Stop()
 	for {
-		select {
-		case <-e.ctx.Done():
-			return
-		default:
-		}
 		e.logger.InfoContext(e.ctx, fmt.Errorf("Establishing MASQUE connection to %s", e.options.Endpoint))
 		udpConn, tr, ipConn, rsp, err := ConnectTunnel(
 			e.ctx,
@@ -99,17 +183,17 @@ func (e *Tunnel) MaintainTunnel() {
 			e.options.UseHTTP2,
 		)
 		if err != nil {
-			e.logger.InfoContext(e.ctx, fmt.Errorf("Failed to connect tunnel: %v", err))
+			e.logger.ErrorContext(e.ctx, fmt.Errorf("Failed to connect tunnel: %v", err))
 			timer.Reset(e.options.ReconnectDelay)
 			select {
 			case <-e.ctx.Done():
-				return
+				return nil, err
 			case <-timer.C:
 			}
 			continue
 		}
 		if rsp.StatusCode != 200 {
-			e.logger.InfoContext(e.ctx, fmt.Errorf("Tunnel connection failed: %s", rsp.Status))
+			e.logger.ErrorContext(e.ctx, fmt.Errorf("Tunnel connection failed: %s", rsp.Status))
 			ipConn.Close()
 			if udpConn != nil {
 				udpConn.Close()
@@ -120,81 +204,32 @@ func (e *Tunnel) MaintainTunnel() {
 			timer.Reset(e.options.ReconnectDelay)
 			select {
 			case <-e.ctx.Done():
-				return
+				return nil, err
 			case <-timer.C:
 			}
 			continue
 		}
-		e.logger.InfoContext(e.ctx, "Connected to MASQUE server")
-		errChan := make(chan error, 2)
-		go func() {
-			for {
-				buf := packetBufferPool.Get()
-				n, err := e.tunnelDevice.ReadPacket(buf)
-				if err != nil {
-					packetBufferPool.Put(buf)
-					errChan <- fmt.Errorf("failed to read from TUN device: %w", err)
-					return
-				}
-				icmp, err := ipConn.WritePacket(buf[:n])
-				if err != nil {
-					packetBufferPool.Put(buf)
-					if errors.As(err, new(*connectip.CloseError)) {
-						errChan <- fmt.Errorf("connection closed while writing to IP connection: %w", err)
-						return
-					}
-					e.logger.InfoContext(e.ctx, fmt.Errorf("Error writing to IP connection: %v, continuing...", err))
-					continue
-				}
-				packetBufferPool.Put(buf)
-				if len(icmp) > 0 {
-					if err := e.tunnelDevice.WritePacket(icmp); err != nil {
-						if errors.As(err, new(*connectip.CloseError)) {
-							errChan <- fmt.Errorf("connection closed while writing ICMP to TUN device: %w", err)
-							return
-						}
-						e.logger.InfoContext(e.ctx, fmt.Errorf("Error writing ICMP to TUN device: %v, continuing...", err))
-					}
-				}
-			}
-		}()
-		go func() {
-			buf := packetBufferPool.Get()
-			defer packetBufferPool.Put(buf)
-			for {
-				n, err := ipConn.ReadPacket(buf, true)
-				if err != nil {
-					if e.options.UseHTTP2 {
-						errChan <- fmt.Errorf("connection closed while reading from IP connection: %w", err)
-						return
-					}
-					if errors.As(err, new(*connectip.CloseError)) {
-						errChan <- fmt.Errorf("connection closed while reading from IP connection: %w", err)
-						return
-					}
-					e.logger.InfoContext(e.ctx, fmt.Errorf("Error reading from IP connection: %v, continuing...", err))
-					continue
-				}
-				if err := e.tunnelDevice.WritePacket(buf[:n]); err != nil {
-					errChan <- fmt.Errorf("failed to write to TUN device: %w", err)
-					return
-				}
-			}
-		}()
-		err = <-errChan
-		e.logger.InfoContext(e.ctx, fmt.Errorf("Tunnel connection lost: %v. Reconnecting...", err))
-		ipConn.Close()
-		if udpConn != nil {
-			udpConn.Close()
-		}
-		if tr != nil {
-			tr.Close()
-		}
-		timer.Reset(e.options.ReconnectDelay)
-		select {
-		case <-e.ctx.Done():
-			return
-		case <-timer.C:
-		}
+		e.udpConn = udpConn
+		e.tr = tr
+		e.ipConn = ipConn
+		e.logger.InfoContext(e.ctx, "Connected to MASQUE server", e.options.Endpoint)
+		return ipConn, nil
 	}
+}
+
+func (e *Tunnel) closeIpConn(ipConn *connectip.Conn) bool {
+	e.mtx.Lock()
+	defer e.mtx.Unlock()
+	if ipConn == e.ipConn {
+		e.ipConn.Close()
+		if e.udpConn != nil {
+			e.udpConn.Close()
+		}
+		if e.tr != nil {
+			e.tr.Close()
+		}
+		e.ipConn = nil
+		return true
+	}
+	return false
 }

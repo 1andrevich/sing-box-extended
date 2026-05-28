@@ -1,3 +1,5 @@
+//go:build with_gvisor
+
 package masque
 
 import (
