@@ -119,7 +119,6 @@ func NewEndpoint(ctx context.Context, router adapter.Router, logger log.ContextL
 							netip.MustParsePrefix("::/0"),
 						},
 						PersistentKeepaliveInterval: options.PersistentKeepaliveInterval,
-						Reserved:                    options.Reserved,
 					},
 				},
 				MTU: 1280,

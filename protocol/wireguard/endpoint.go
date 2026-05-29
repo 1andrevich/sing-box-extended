@@ -130,7 +130,6 @@ func NewEndpoint(ctx context.Context, router adapter.Router, logger log.ContextL
 				PreSharedKey:                it.PreSharedKey,
 				AllowedIPs:                  it.AllowedIPs,
 				PersistentKeepaliveInterval: it.PersistentKeepaliveInterval,
-				Reserved:                    it.Reserved,
 			}
 		}),
 		Workers:                    options.Workers,
