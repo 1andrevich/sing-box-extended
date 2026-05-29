@@ -8,19 +8,24 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptrace"
+	"reflect"
 	"strings"
 	"sync"
+	"unsafe"
 
+	"github.com/sagernet/quic-go/http3"
 	common "github.com/sagernet/sing-box/common/xray"
 	"github.com/sagernet/sing-box/common/xray/buf"
 	"github.com/sagernet/sing-box/common/xray/signal/done"
 	"github.com/sagernet/sing-box/option"
 	E "github.com/sagernet/sing/common/exceptions"
+	"golang.org/x/net/http2"
 )
 
 // interface to abstract between use of browser dialer, vs net/http
 type DialerClient interface {
 	IsClosed() bool
+	Close()
 
 	// ctx, url, sessionId, body, uploadOnly
 	OpenStream(context.Context, string, string, io.Reader, bool) (io.ReadCloser, net.Addr, net.Addr, error)
@@ -38,9 +43,54 @@ type DefaultDialerClient struct {
 	// pool of net.Conn, created using dialUploadConn
 	uploadRawPool  *sync.Pool
 	dialUploadConn func(ctxInner context.Context) (net.Conn, error)
+
+	mtx sync.RWMutex
+}
+
+type clientConnPool struct {
+	t     *http2.Transport
+	mu    sync.Mutex
+	conns map[string][]*http2.ClientConn // key is host:port
+}
+
+type efaceWords struct {
+	typ  unsafe.Pointer
+	data unsafe.Pointer
+}
+
+//go:linkname transportConnPool golang.org/x/net/http2.(*Transport).connPool
+func transportConnPool(t *http2.Transport) http2.ClientConnPool
+
+func (c *DefaultDialerClient) Close() {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	if c.closed {
+		return
+	}
+	c.closed = true
+	switch transport := c.client.Transport.(type) {
+	case *http.Transport:
+		transport.CloseIdleConnections()
+	case *http2.Transport:
+		connPool := transportConnPool(transport)
+		p := (*clientConnPool)((*efaceWords)(unsafe.Pointer(&connPool)).data)
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		for _, vv := range p.conns {
+			for _, cc := range vv {
+				cc.Close()
+			}
+		}
+	case *http3.Transport:
+		transport.Close()
+	default:
+		panic(E.New("unknown transport type: ", reflect.TypeOf(transport)))
+	}
 }
 
 func (c *DefaultDialerClient) IsClosed() bool {
+	c.mtx.RLock()
+	defer c.mtx.RUnlock()
 	return c.closed
 }
 
@@ -67,7 +117,7 @@ func (c *DefaultDialerClient) OpenStream(ctx context.Context, url string, sessio
 		resp, err := c.client.Do(req)
 		if err != nil {
 			if !uploadOnly { // stream-down is enough
-				c.closed = true
+				c.Close()
 			}
 			gotConn.Close()
 			common.Close(body)
@@ -133,7 +183,7 @@ func (c *DefaultDialerClient) PostPacket(ctx context.Context, url string, sessio
 				if h1UploadConn.UnreadedResponsesCount > 0 {
 					resp, err := http.ReadResponse(h1UploadConn.RespBufReader, req)
 					if err != nil {
-						c.closed = true
+						c.Close()
 						return fmt.Errorf("error while reading response: %s", err.Error())
 					}
 					io.Copy(io.Discard, resp.Body)

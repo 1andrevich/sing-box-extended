@@ -123,10 +123,10 @@ func (c *Client) DialContext(ctx context.Context) (net.Conn, error) {
 	httpClient, xmuxClient := c.getHTTPClient()
 	httpClient2, xmuxClient2 := c.getHTTPClient2()
 	if xmuxClient != nil {
-		xmuxClient.OpenUsage.Add(1)
+		xmuxClient.AddOpenUsage(1)
 	}
 	if xmuxClient2 != nil && xmuxClient2 != xmuxClient {
-		xmuxClient2.OpenUsage.Add(1)
+		xmuxClient2.AddOpenUsage(1)
 	}
 	var closed atomic.Int32
 	reader, writer := io.Pipe()
@@ -137,10 +137,10 @@ func (c *Client) DialContext(ctx context.Context) (net.Conn, error) {
 				return
 			}
 			if xmuxClient != nil {
-				xmuxClient.OpenUsage.Add(-1)
+				xmuxClient.AddOpenUsage(-1)
 			}
 			if xmuxClient2 != nil && xmuxClient2 != xmuxClient {
-				xmuxClient2.OpenUsage.Add(-1)
+				xmuxClient2.AddOpenUsage(-1)
 			}
 		},
 	}
