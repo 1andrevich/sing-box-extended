@@ -94,6 +94,74 @@ builds:
       - android_arm64
       - android_386
       - android_amd64
+  - id: compressed
+    <<: *template
+    targets:
+      - linux_386
+      - linux_amd64_v1
+      - linux_arm64
+      - linux_arm_6
+      - linux_arm_7
+      - linux_riscv64
+  - id: compressed-mips
+    <<: *template
+    tags:
+      - with_gvisor
+      - with_quic
+      - with_dhcp
+      - with_wireguard
+      - with_utls
+      - with_acme
+      - with_clash_api
+      - with_tailscale
+      - with_masque
+      - with_mtproxy
+    targets:
+      - linux_mips
+      - linux_mips_softfloat
+      - linux_mipsle
+      - linux_mipsle_softfloat
+  - id: compressed-android
+    <<: *template
+    env:
+      - CGO_ENABLED=1
+      - GOTOOLCHAIN=local
+    overrides:
+      - goos: android
+        goarch: arm
+        goarm: 7
+        env:
+          - CC=armv7a-linux-androideabi21-clang
+          - CXX=armv7a-linux-androideabi21-clang++
+      - goos: android
+        goarch: arm64
+        env:
+          - CC=aarch64-linux-android21-clang
+          - CXX=aarch64-linux-android21-clang++
+      - goos: android
+        goarch: 386
+        env:
+          - CC=i686-linux-android21-clang
+          - CXX=i686-linux-android21-clang++
+      - goos: android
+        goarch: amd64
+        goamd64: v1
+        env:
+          - CC=x86_64-linux-android21-clang
+          - CXX=x86_64-linux-android21-clang++
+    targets:
+      - android_arm_7
+      - android_arm64
+      - android_386
+      - android_amd64
+upx:
+  - enabled: true
+    ids:
+      - compressed
+      - compressed-mips
+      - compressed-android
+    compress: best
+    lzma: true
 archives:
   - &template
     id: archive
@@ -116,6 +184,13 @@ archives:
     builds:
       - legacy
     name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}-legacy'
+  - id: archive-compressed
+    <<: *template
+    builds:
+      - compressed
+      - compressed-mips
+      - compressed-android
+    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ if and .Mips (not (eq .Mips "hardfloat")) }}-{{ .Mips }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}-compressed'
 source:
   enabled: false
   name_template: '{{ .ProjectName }}-{{ .Version }}.source'
@@ -134,5 +209,6 @@ release:
   mode: replace
   ids:
     - archive
+    - archive-compressed
     - package
   skip_upload: true

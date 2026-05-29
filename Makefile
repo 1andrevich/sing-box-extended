@@ -28,20 +28,12 @@ build:
 	export GOTOOLCHAIN=local && \
 	go build $(MAIN_PARAMS) $(MAIN)
 
-admin_panel_web:
+build_admin_panel:
 	cd $(ADMIN_PANEL_WEB) && \
 		npm install --no-fund --no-audit && \
 		npm run build
-
-admin_panel_pack:
 	go run ./cmd/internal/admin_panel_pack \
 		-dir $(ADMIN_PANEL_DIST)
-
-admin_panel_regen: admin_panel_web admin_panel_pack
-
-build_admin_panel:
-	export GOTOOLCHAIN=local && \
-	go build $(PARAMS) -tags "$(ADMIN_PANEL_TAGS)" $(MAIN)
 
 race:
 	export GOTOOLCHAIN=local && \
@@ -86,7 +78,7 @@ proto_install:
 update_certificates:
 	go run ./cmd/internal/update_certificates
 
-release:
+release: build_admin_panel
 	go run ./cmd/internal/build goreleaser release --skip=validate --clean -p 3 --skip publish
 	mkdir dist/release
 	mv dist/*.tar.gz \
