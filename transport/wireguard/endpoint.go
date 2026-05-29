@@ -151,7 +151,7 @@ func (e *Endpoint) Start(resolve bool) error {
 	var bind conn.Bind
 	wgListener, isWgListener := common.Cast[dialer.WireGuardListener](e.options.Dialer)
 	if isWgListener {
-		bind = conn.NewStdNetBind(wgListener.WireGuardControl())
+		bind = conn.NewDefaultBind(wgListener.WireGuardControl())
 	} else {
 		var (
 			isConnect   bool
