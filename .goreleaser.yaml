@@ -29,15 +29,11 @@ builds:
       - GOTOOLCHAIN=local
     targets:
       - linux_386
-      - linux_amd64_v1
-      - linux_arm64
       - linux_arm_6
       - linux_arm_7
       - linux_s390x
       - linux_riscv64
-      - windows_amd64_v1
       - windows_386
-      - windows_arm64
       - darwin_amd64_v1
       - darwin_arm64
     mod_timestamp: '{{ .CommitTimestamp }}'
@@ -94,6 +90,199 @@ builds:
       - android_arm64
       - android_386
       - android_amd64
+  - id: naive-purego-linux-amd64
+    <<: *template
+    tags:
+      - with_gvisor
+      - with_quic
+      - with_dhcp
+      - with_wireguard
+      - with_utls
+      - with_acme
+      - with_clash_api
+      - with_tailscale
+      - with_masque
+      - with_mtproxy
+      - with_naive_outbound
+      - with_manager
+      - with_admin_panel
+      - with_purego
+    env:
+      - CGO_ENABLED=0
+      - GOTOOLCHAIN=local
+    hooks:
+      post:
+        - cmd: go run -C {{ .Env.CRONET_GO_PATH }} ./cmd/build-naive extract-lib --target {{ .Os }}/{{ .Arch }} -o {{ dir .Path }}
+          env:
+            - CGO_ENABLED=0
+    targets:
+      - linux_amd64_v1
+  - id: naive-purego-linux-arm64
+    <<: *template
+    tags:
+      - with_gvisor
+      - with_quic
+      - with_dhcp
+      - with_wireguard
+      - with_utls
+      - with_acme
+      - with_clash_api
+      - with_tailscale
+      - with_masque
+      - with_mtproxy
+      - with_naive_outbound
+      - with_manager
+      - with_admin_panel
+      - with_purego
+    env:
+      - CGO_ENABLED=0
+      - GOTOOLCHAIN=local
+    hooks:
+      post:
+        - cmd: go run -C {{ .Env.CRONET_GO_PATH }} ./cmd/build-naive extract-lib --target {{ .Os }}/{{ .Arch }} -o {{ dir .Path }}
+          env:
+            - CGO_ENABLED=0
+    targets:
+      - linux_arm64
+  - id: naive-purego-windows-amd64
+    <<: *template
+    tags:
+      - with_gvisor
+      - with_quic
+      - with_dhcp
+      - with_wireguard
+      - with_utls
+      - with_acme
+      - with_clash_api
+      - with_tailscale
+      - with_masque
+      - with_mtproxy
+      - with_naive_outbound
+      - with_manager
+      - with_admin_panel
+      - with_purego
+    env:
+      - CGO_ENABLED=0
+      - GOTOOLCHAIN=local
+    hooks:
+      post:
+        - cmd: go run -C {{ .Env.CRONET_GO_PATH }} ./cmd/build-naive extract-lib --target {{ .Os }}/{{ .Arch }} -o {{ dir .Path }}
+          env:
+            - CGO_ENABLED=0
+    targets:
+      - windows_amd64_v1
+  - id: naive-purego-windows-arm64
+    <<: *template
+    tags:
+      - with_gvisor
+      - with_quic
+      - with_dhcp
+      - with_wireguard
+      - with_utls
+      - with_acme
+      - with_clash_api
+      - with_tailscale
+      - with_masque
+      - with_mtproxy
+      - with_naive_outbound
+      - with_manager
+      - with_admin_panel
+      - with_purego
+    env:
+      - CGO_ENABLED=0
+      - GOTOOLCHAIN=local
+    hooks:
+      post:
+        - cmd: go run -C {{ .Env.CRONET_GO_PATH }} ./cmd/build-naive extract-lib --target {{ .Os }}/{{ .Arch }} -o {{ dir .Path }}
+          env:
+            - CGO_ENABLED=0
+    targets:
+      - windows_arm64
+  - id: naive-glibc
+    <<: *template
+    tags:
+      - with_gvisor
+      - with_quic
+      - with_dhcp
+      - with_wireguard
+      - with_utls
+      - with_acme
+      - with_clash_api
+      - with_tailscale
+      - with_masque
+      - with_mtproxy
+      - with_manager
+      - with_admin_panel
+      - with_naive_outbound
+    env:
+      - CGO_ENABLED=1
+      - GOTOOLCHAIN=local
+      - CGO_LDFLAGS=-fuse-ld=lld -Wl,-z,notext -Wl,-z,execstack
+      - CC_linux_amd64={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang --target=x86_64-linux-gnu --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/bullseye/bullseye_amd64_staging
+      - CXX_linux_amd64={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang++ --target=x86_64-linux-gnu --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/bullseye/bullseye_amd64_staging
+      - CC_linux_arm64={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang --target=aarch64-linux-gnu --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/bullseye/bullseye_arm64_staging
+      - CXX_linux_arm64={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang++ --target=aarch64-linux-gnu --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/bullseye/bullseye_arm64_staging
+      - CC_linux_386={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang --target=i686-linux-gnu --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/bullseye/bullseye_i386_staging
+      - CXX_linux_386={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang++ --target=i686-linux-gnu --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/bullseye/bullseye_i386_staging
+      - CC_linux_arm={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang --target=arm-linux-gnueabihf --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/bullseye/bullseye_armhf_staging
+      - CXX_linux_arm={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang++ --target=arm-linux-gnueabihf --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/bullseye/bullseye_armhf_staging
+      - CC_linux_mips64le={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang --target=mips64el-linux-gnuabi64 --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/bullseye/bullseye_mips64el_staging
+      - CXX_linux_mips64le={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang++ --target=mips64el-linux-gnuabi64 --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/bullseye/bullseye_mips64el_staging
+      - CC_linux_riscv64={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang --target=riscv64-linux-gnu --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/trixie/trixie_riscv64_staging
+      - CXX_linux_riscv64={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang++ --target=riscv64-linux-gnu --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/trixie/trixie_riscv64_staging
+      - CC_linux_loong64={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang --target=loongarch64-linux-gnu --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/sid/sid_loong64_staging
+      - CXX_linux_loong64={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang++ --target=loongarch64-linux-gnu --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/sid/sid_loong64_staging
+      - 'CC={{ index .Env (print "CC_" .Os "_" .Arch) }}'
+      - 'CXX={{ index .Env (print "CXX_" .Os "_" .Arch) }}'
+    targets:
+      - linux_amd64_v1
+      - linux_arm64
+      - linux_386
+      - linux_arm_7
+      - linux_riscv64
+      - linux_loong64
+  - id: naive-musl
+    <<: *template
+    tags:
+      - with_gvisor
+      - with_quic
+      - with_dhcp
+      - with_wireguard
+      - with_utls
+      - with_acme
+      - with_clash_api
+      - with_tailscale
+      - with_masque
+      - with_mtproxy
+      - with_manager
+      - with_admin_panel
+      - with_naive_outbound
+      - with_musl
+    env:
+      - CGO_ENABLED=1
+      - GOTOOLCHAIN=local
+      - CGO_LDFLAGS=-fuse-ld=lld -Wl,-z,notext -Wl,-z,execstack
+      - CC_linux_amd64={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang --target=x86_64-openwrt-linux-musl --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/openwrt/23.05.5/x86_64
+      - CXX_linux_amd64={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang++ --target=x86_64-openwrt-linux-musl --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/openwrt/23.05.5/x86_64
+      - CC_linux_arm64={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang --target=aarch64-openwrt-linux-musl --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/openwrt/23.05.5/aarch64
+      - CXX_linux_arm64={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang++ --target=aarch64-openwrt-linux-musl --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/openwrt/23.05.5/aarch64
+      - CC_linux_386={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang --target=i486-openwrt-linux-musl --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/openwrt/23.05.5/i386_pentium4
+      - CXX_linux_386={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang++ --target=i486-openwrt-linux-musl --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/openwrt/23.05.5/i386_pentium4
+      - CC_linux_arm={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang --target=arm-openwrt-linux-musleabi --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/openwrt/23.05.5/arm_cortex-a15_neon-vfpv4
+      - CXX_linux_arm={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang++ --target=arm-openwrt-linux-musleabi --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/openwrt/23.05.5/arm_cortex-a15_neon-vfpv4
+      - CC_linux_riscv64={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang --target=riscv64-openwrt-linux-musl --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/openwrt/23.05.5/riscv64
+      - CXX_linux_riscv64={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang++ --target=riscv64-openwrt-linux-musl --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/openwrt/23.05.5/riscv64
+      - CC_linux_loong64={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang --target=loongarch64-openwrt-linux-musl --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/openwrt/24.10.5/loongarch64
+      - CXX_linux_loong64={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/third_party/llvm-build/Release+Asserts/bin/clang++ --target=loongarch64-openwrt-linux-musl --sysroot={{ .Env.CRONET_GO_PATH }}/naiveproxy/src/out/sysroot-build/openwrt/24.10.5/loongarch64
+      - 'CC={{ index .Env (print "CC_" .Os "_" .Arch) }}'
+      - 'CXX={{ index .Env (print "CXX_" .Os "_" .Arch) }}'
+    targets:
+      - linux_amd64_v1
+      - linux_arm64
+      - linux_386
+      - linux_arm_7
+      - linux_riscv64
+      - linux_loong64
   - id: compressed
     <<: *template
     targets:
@@ -179,6 +368,52 @@ archives:
     files:
       - LICENSE
     name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ if and .Mips (not (eq .Mips "hardfloat")) }}-{{ .Mips }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}'
+  - id: archive-naive-glibc
+    <<: *template
+    builds:
+      - naive-glibc
+    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ if and .Mips (not (eq .Mips "hardfloat")) }}-{{ .Mips }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}-glibc'
+  - id: archive-naive-musl
+    <<: *template
+    builds:
+      - naive-musl
+    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ if and .Mips (not (eq .Mips "hardfloat")) }}-{{ .Mips }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}-musl'
+  - id: archive-naive-purego-linux-amd64
+    <<: *template
+    builds:
+      - naive-purego-linux-amd64
+    files:
+      - LICENSE
+      - src: dist/naive-purego-linux-amd64_*/libcronet*
+        strip_parent: true
+    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}'
+  - id: archive-naive-purego-linux-arm64
+    <<: *template
+    builds:
+      - naive-purego-linux-arm64
+    files:
+      - LICENSE
+      - src: dist/naive-purego-linux-arm64_*/libcronet*
+        strip_parent: true
+    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}'
+  - id: archive-naive-purego-windows-amd64
+    <<: *template
+    builds:
+      - naive-purego-windows-amd64
+    files:
+      - LICENSE
+      - src: dist/naive-purego-windows-amd64_*/libcronet*
+        strip_parent: true
+    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}'
+  - id: archive-naive-purego-windows-arm64
+    <<: *template
+    builds:
+      - naive-purego-windows-arm64
+    files:
+      - LICENSE
+      - src: dist/naive-purego-windows-arm64_*/libcronet*
+        strip_parent: true
+    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}'
   - id: archive-legacy
     <<: *template
     builds:
@@ -209,6 +444,12 @@ release:
   mode: replace
   ids:
     - archive
+    - archive-naive-glibc
+    - archive-naive-musl
+    - archive-naive-purego-linux-amd64
+    - archive-naive-purego-linux-arm64
+    - archive-naive-purego-windows-amd64
+    - archive-naive-purego-windows-arm64
     - archive-compressed
     - package
   skip_upload: true

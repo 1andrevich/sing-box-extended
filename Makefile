@@ -22,6 +22,8 @@ ADMIN_PANEL_TAGS = $(TAGS),with_admin_panel
 DOCKER_IMAGE ?= shtorm7/sing-box-extended
 DOCKER_PLATFORMS ?= linux/amd64,linux/arm64
 
+CRONET_GO_PATH ?= $(shell pwd)/cronet-go
+
 .PHONY: test release docs build
 
 build:
@@ -34,6 +36,15 @@ build_admin_panel:
 		npm run build
 	go run ./cmd/internal/admin_panel_pack \
 		-dir $(ADMIN_PANEL_DIST)
+
+build_naive:
+	cd $(CRONET_GO_PATH) && \
+	for arch in amd64 arm64 386 arm mipsle mips64le riscv64 loong64; do \
+		go run ./cmd/build-naive --target=linux/$$arch download-toolchain; \
+	done && \
+	for arch in amd64 arm64 386 arm mipsle riscv64 loong64; do \
+		go run ./cmd/build-naive --target=linux/$$arch --libc=musl download-toolchain; \
+	done
 
 race:
 	export GOTOOLCHAIN=local && \
@@ -78,8 +89,8 @@ proto_install:
 update_certificates:
 	go run ./cmd/internal/update_certificates
 
-release: build_admin_panel
-	go run ./cmd/internal/build goreleaser release --skip=validate --clean -p 3 --skip publish
+release: build_admin_panel build_naive
+	CRONET_GO_PATH=$(CRONET_GO_PATH) go run ./cmd/internal/build goreleaser release --skip=validate --clean -p 3 --skip publish
 	mkdir dist/release
 	mv dist/*.tar.gz \
 		dist/*.zip \
