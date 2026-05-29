@@ -96,6 +96,7 @@ release: build_admin_panel build_naive
 		dist/*.zip \
 		dist/release
 	ghr --replace --draft --prerelease -p 5 "v${VERSION}" dist/release
+	./codeberg-release.sh --replace --draft --prerelease -p 5 "v${VERSION}" dist/release
 	rm -r dist/release
 
 release_repo:
@@ -124,6 +125,7 @@ upload_android:
 	cp ../sing-box-for-android/app/build/outputs/apk/other/release/*.apk dist/release_android
 	cp ../sing-box-for-android/app/build/outputs/apk/otherLegacy/release/*.apk dist/release_android
 	ghr --replace --draft --prerelease -p 5 "v${VERSION}" dist/release_android
+	./codeberg-release.sh --replace --draft --prerelease -p 5 "v${VERSION}" dist/release_android
 	rm -rf dist/release_android
 
 release_android: lib_android update_android_version build_android

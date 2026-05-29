@@ -1,5 +1,9 @@
 # sing-box-extended
 
+[![license](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
+[![go](https://img.shields.io/badge/go-1.26-00ADD8.svg)](go.mod)
+[![codeberg](https://img.shields.io/badge/mirror-codeberg-2185D0.svg)](https://codeberg.org/shtorm-7/sing-box-extended)
+
 Sing-box with extended features.
 
 ## 🔥 Features
