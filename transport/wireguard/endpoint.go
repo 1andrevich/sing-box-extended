@@ -82,12 +82,6 @@ func NewEndpoint(options EndpointOptions) (*Endpoint, error) {
 		if len(rawPeer.AllowedIPs) == 0 {
 			return nil, E.New("missing allowed ips for peer ", peerIndex)
 		}
-		if len(rawPeer.Reserved) > 0 {
-			if len(rawPeer.Reserved) != 3 {
-				return nil, E.New("invalid reserved value for peer ", peerIndex, ", required 3 bytes, got ", len(peer.reserved))
-			}
-			copy(peer.reserved[:], rawPeer.Reserved[:])
-		}
 		peers = append(peers, peer)
 	}
 	var allowedPrefixBuilder netipx.IPSetBuilder
@@ -162,21 +156,12 @@ func (e *Endpoint) Start(resolve bool) error {
 		var (
 			isConnect   bool
 			connectAddr netip.AddrPort
-			reserved    [3]uint8
 		)
 		if len(e.peers) == 1 && e.peers[0].endpoint.IsValid() {
 			isConnect = true
 			connectAddr = e.peers[0].endpoint
-			reserved = e.peers[0].reserved
 		}
-		bind = NewClientBind(e.options.Context, e.options.Logger, e.options.Dialer, isConnect, connectAddr, reserved)
-	}
-	if isWgListener || len(e.peers) > 1 {
-		for _, peer := range e.peers {
-			if peer.reserved != [3]uint8{} {
-				bind.SetReservedForEndpoint(peer.endpoint, peer.reserved)
-			}
-		}
+		bind = NewClientBind(e.options.Context, e.options.Logger, e.options.Dialer, isConnect, connectAddr)
 	}
 	err := e.tunDevice.Start()
 	if err != nil {
@@ -336,7 +321,6 @@ type peerConfig struct {
 	preSharedKeyHex string
 	allowedIPs      []netip.Prefix
 	keepalive       uint16
-	reserved        [3]uint8
 }
 
 func (c peerConfig) GenerateIpcLines() string {

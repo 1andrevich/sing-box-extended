@@ -39,7 +39,6 @@ type PeerOptions struct {
 	PreSharedKey                string
 	AllowedIPs                  []netip.Prefix
 	PersistentKeepaliveInterval uint16
-	Reserved                    []uint8
 }
 
 type AmneziaOptions struct {
