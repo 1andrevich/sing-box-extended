@@ -29,11 +29,15 @@ builds:
       - GOTOOLCHAIN=local
     targets:
       - linux_386
+      - linux_amd64_v1
+      - linux_arm64
       - linux_arm_6
       - linux_arm_7
       - linux_s390x
       - linux_riscv64
+      - windows_amd64_v1
       - windows_386
+      - windows_arm64
       - darwin_amd64_v1
       - darwin_arm64
     mod_timestamp: '{{ .CommitTimestamp }}'
@@ -386,7 +390,7 @@ archives:
       - LICENSE
       - src: dist/naive-purego-linux-amd64_*/libcronet*
         strip_parent: true
-    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}'
+    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}-purego'
   - id: archive-naive-purego-linux-arm64
     <<: *template
     builds:
@@ -395,7 +399,7 @@ archives:
       - LICENSE
       - src: dist/naive-purego-linux-arm64_*/libcronet*
         strip_parent: true
-    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}'
+    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}-purego'
   - id: archive-naive-purego-windows-amd64
     <<: *template
     builds:
@@ -404,7 +408,7 @@ archives:
       - LICENSE
       - src: dist/naive-purego-windows-amd64_*/libcronet*
         strip_parent: true
-    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}'
+    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}-purego'
   - id: archive-naive-purego-windows-arm64
     <<: *template
     builds:
@@ -413,7 +417,7 @@ archives:
       - LICENSE
       - src: dist/naive-purego-windows-arm64_*/libcronet*
         strip_parent: true
-    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}'
+    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}-purego'
   - id: archive-legacy
     <<: *template
     builds:
