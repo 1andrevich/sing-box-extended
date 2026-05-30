@@ -211,7 +211,7 @@ require (
 	lukechampine.com/blake3 v1.4.1
 )
 
-replace github.com/sagernet/wireguard-go => github.com/shtorm-7/wireguard-go v0.0.2-beta.1-extended-1.4.2
+replace github.com/sagernet/wireguard-go => github.com/shtorm-7/wireguard-go v0.0.2-beta.1-extended-1.4.3
 
 replace github.com/sagernet/tailscale => github.com/shtorm-7/tailscale v1.92.4-sing-box-1.13-mod.7-extended-1.0.2
 
