@@ -9,12 +9,13 @@ import (
 	"github.com/sagernet/sing-box/adapter"
 )
 
-type Limiter interface {
+type BandwidthLimiter interface {
 	WaitN(ctx context.Context, n int) (err error)
+	SetSpeed(speed uint64)
 }
 
 type FlowKeysLimiter struct {
-	limiter      Limiter
+	limiter      BandwidthLimiter
 	connIDGetter ConnIDGetter
 
 	waits map[string][]*wait
@@ -25,7 +26,7 @@ type FlowKeysLimiter struct {
 	mtx sync.Mutex
 }
 
-func NewFlowKeysLimiter(connIDGetter ConnIDGetter, limiter Limiter) *FlowKeysLimiter {
+func NewFlowKeysLimiter(connIDGetter ConnIDGetter, limiter BandwidthLimiter) *FlowKeysLimiter {
 	return &FlowKeysLimiter{
 		limiter:      limiter,
 		connIDGetter: connIDGetter,
@@ -34,6 +35,10 @@ func NewFlowKeysLimiter(connIDGetter ConnIDGetter, limiter Limiter) *FlowKeysLim
 		queue:        make(chan struct{}, 1),
 		reset:        time.Now().Add(time.Second),
 	}
+}
+
+func (l *FlowKeysLimiter) SetSpeed(speed uint64) {
+	l.limiter.SetSpeed(speed)
 }
 
 func (l *FlowKeysLimiter) WaitN(ctx context.Context, n int) error {

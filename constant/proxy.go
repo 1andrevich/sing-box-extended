@@ -13,10 +13,12 @@ const (
 	TypeShadowsocks       = "shadowsocks"
 	TypeVMess             = "vmess"
 	TypeTrojan            = "trojan"
+	TypeTrustTunnel       = "trusttunnel"
 	TypeNaive             = "naive"
 	TypeWireGuard         = "wireguard"
 	TypeWARP              = "warp"
 	TypeMASQUE            = "masque"
+	TypeOpenVPN           = "openvpn"
 	TypeMTProxy           = "mtproxy"
 	TypeParser            = "parser"
 	TypeHysteria          = "hysteria"
@@ -25,6 +27,7 @@ const (
 	TypeShadowTLS         = "shadowtls"
 	TypeMieru             = "mieru"
 	TypeAnyTLS            = "anytls"
+	TypeSudoku            = "sudoku"
 	TypeShadowsocksR      = "shadowsocksr"
 	TypeVLESS             = "vless"
 	TypeTUIC              = "tuic"
@@ -84,6 +87,8 @@ func ProxyDisplayName(proxyType string) string {
 		return "VMess"
 	case TypeTrojan:
 		return "Trojan"
+	case TypeTrustTunnel:
+		return "TrustTunnel"
 	case TypeNaive:
 		return "Naive"
 	case TypeWireGuard:
@@ -92,6 +97,8 @@ func ProxyDisplayName(proxyType string) string {
 		return "WARP"
 	case TypeMASQUE:
 		return "MASQUE"
+	case TypeOpenVPN:
+		return "OpenVPN"
 	case TypeMTProxy:
 		return "MTProxy"
 	case TypeParser:
@@ -120,6 +127,8 @@ func ProxyDisplayName(proxyType string) string {
 		return "Mieru"
 	case TypeAnyTLS:
 		return "AnyTLS"
+	case TypeSudoku:
+		return "Sudoku"
 	case TypeFallback:
 		return "Fallback"
 	case TypeTailscale:

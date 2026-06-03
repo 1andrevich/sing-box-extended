@@ -20,6 +20,10 @@ import (
 	"github.com/sagernet/sing-box/service/manager/repository/sqlite"
 	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/shtorm-7/go-cache/v2"
+	wpconstant "github.com/shtorm-7/workerpool/constant"
+	"github.com/shtorm-7/workerpool/pool"
+	"github.com/shtorm-7/workerpool/tools"
+	"github.com/shtorm-7/workerpool/worker"
 )
 
 func RegisterService(registry *boxService.Registry) {
@@ -28,15 +32,18 @@ func RegisterService(registry *boxService.Registry) {
 
 type Service struct {
 	boxService.Adapter
-	ctx        context.Context
-	logger     log.ContextLogger
-	repository constant.Repository
-	nodes      map[string]constant.ConnectedNode
+	ctx             context.Context
+	logger          log.ContextLogger
+	repository      constant.Repository
+	nodes           map[string]constant.ConnectedNode
 
 	limiterLocks map[int]map[string]*cache.Cache[string, struct{}]
 	trafficUsage map[int]*TrafficUsage
 
 	defaultValidator *validator.Validate
+
+	broadcastQueue wpconstant.Queue
+	broadcastPool  wpconstant.Pool
 
 	mtx         sync.RWMutex
 	connLockMtx sync.Mutex
@@ -106,6 +113,13 @@ func NewService(ctx context.Context, logger log.ContextLogger, tag string, optio
 	defaultValidator.RegisterStructValidation(func(sl validator.StructLevel) {
 		validateRateLimiterInterval(sl, sl.Current().Interface().(constant.RateLimiterUpdate).Interval)
 	}, constant.RateLimiterUpdate{})
+	broadcastQueue := make(wpconstant.Queue)
+	broadcastWorkers := make([]wpconstant.WorkerFactory, 16)
+	for i := range broadcastWorkers {
+		broadcastWorkers[i] = worker.NewWorkerFactory(broadcastQueue)
+	}
+	broadcastPool := pool.NewPool(broadcastWorkers)
+	broadcastPool.Start()
 	service := &Service{
 		Adapter:          boxService.NewAdapter(C.TypeManager, tag),
 		ctx:              ctx,
@@ -115,6 +129,8 @@ func NewService(ctx context.Context, logger log.ContextLogger, tag string, optio
 		limiterLocks:     make(map[int]map[string]*cache.Cache[string, struct{}]),
 		trafficUsage:     make(map[int]*TrafficUsage),
 		defaultValidator: defaultValidator,
+		broadcastQueue:   broadcastQueue,
+		broadcastPool:    broadcastPool,
 	}
 	limiters, err := service.repository.GetTrafficLimiters(map[string][]string{})
 	if err != nil {
@@ -320,11 +336,9 @@ func (s *Service) CreateUser(user constant.UserCreate) (constant.User, error) {
 		s.closeAllNodes()
 		return createdUser, err
 	}
-	for _, node := range nodes {
-		if node, ok := s.nodes[node.UUID]; ok {
-			node.UpdateUser(createdUser)
-		}
-	}
+	s.dispatchToNodes(nodes, func(node constant.ConnectedNode) {
+		node.UpdateUser(createdUser)
+	})
 	return createdUser, nil
 }
 
@@ -343,6 +357,10 @@ func (s *Service) GetUser(id int) (constant.User, error) {
 func (s *Service) UpdateUser(id int, user constant.UserUpdate) (constant.User, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
+	err := s.defaultValidator.Struct(user)
+	if err != nil {
+		return constant.User{}, err
+	}
 	updatedUser, err := s.repository.UpdateUser(id, user)
 	if err != nil {
 		return updatedUser, err
@@ -354,11 +372,9 @@ func (s *Service) UpdateUser(id int, user constant.UserUpdate) (constant.User, e
 		s.closeAllNodes()
 		return updatedUser, err
 	}
-	for _, node := range nodes {
-		if node, ok := s.nodes[node.UUID]; ok {
-			node.UpdateUser(updatedUser)
-		}
-	}
+	s.dispatchToNodes(nodes, func(node constant.ConnectedNode) {
+		node.UpdateUser(updatedUser)
+	})
 	return updatedUser, nil
 }
 
@@ -376,11 +392,9 @@ func (s *Service) DeleteUser(id int) (constant.User, error) {
 		s.closeAllNodes()
 		return deletedUser, err
 	}
-	for _, node := range nodes {
-		if node, ok := s.nodes[node.UUID]; ok {
-			node.DeleteUser(deletedUser)
-		}
-	}
+	s.dispatchToNodes(nodes, func(node constant.ConnectedNode) {
+		node.DeleteUser(deletedUser)
+	})
 	return deletedUser, nil
 }
 
@@ -402,11 +416,9 @@ func (s *Service) CreateBandwidthLimiter(limiter constant.BandwidthLimiterCreate
 		s.closeAllNodes()
 		return createdLimiter, err
 	}
-	for _, node := range nodes {
-		if node, ok := s.nodes[node.UUID]; ok {
-			node.UpdateBandwidthLimiter(createdLimiter)
-		}
-	}
+	s.dispatchToNodes(nodes, func(node constant.ConnectedNode) {
+		node.UpdateBandwidthLimiter(createdLimiter)
+	})
 	return createdLimiter, nil
 }
 
@@ -440,11 +452,9 @@ func (s *Service) UpdateBandwidthLimiter(id int, limiter constant.BandwidthLimit
 		s.closeAllNodes()
 		return updatedLimiter, err
 	}
-	for _, node := range nodes {
-		if node, ok := s.nodes[node.UUID]; ok {
-			node.UpdateBandwidthLimiter(updatedLimiter)
-		}
-	}
+	s.dispatchToNodes(nodes, func(node constant.ConnectedNode) {
+		node.UpdateBandwidthLimiter(updatedLimiter)
+	})
 	return updatedLimiter, nil
 }
 
@@ -462,11 +472,9 @@ func (s *Service) DeleteBandwidthLimiter(id int) (constant.BandwidthLimiter, err
 		s.closeAllNodes()
 		return deletedLimiter, err
 	}
-	for _, node := range nodes {
-		if node, ok := s.nodes[node.UUID]; ok {
-			node.DeleteBandwidthLimiter(deletedLimiter)
-		}
-	}
+	s.dispatchToNodes(nodes, func(node constant.ConnectedNode) {
+		node.DeleteBandwidthLimiter(deletedLimiter)
+	})
 	return deletedLimiter, nil
 }
 
@@ -494,11 +502,9 @@ func (s *Service) CreateTrafficLimiter(limiter constant.TrafficLimiterCreate) (c
 		s.closeAllNodes()
 		return createdLimiter, err
 	}
-	for _, node := range nodes {
-		if node, ok := s.nodes[node.UUID]; ok {
-			node.UpdateTrafficLimiter(createdLimiter)
-		}
-	}
+	s.dispatchToNodes(nodes, func(node constant.ConnectedNode) {
+		node.UpdateTrafficLimiter(createdLimiter)
+	})
 	return createdLimiter, nil
 }
 
@@ -538,11 +544,9 @@ func (s *Service) UpdateTrafficLimiter(id int, limiter constant.TrafficLimiterUp
 		s.closeAllNodes()
 		return updatedLimiter, err
 	}
-	for _, node := range nodes {
-		if node, ok := s.nodes[node.UUID]; ok {
-			node.UpdateTrafficLimiter(updatedLimiter)
-		}
-	}
+	s.dispatchToNodes(nodes, func(node constant.ConnectedNode) {
+		node.UpdateTrafficLimiter(updatedLimiter)
+	})
 	return updatedLimiter, nil
 }
 
@@ -566,11 +570,9 @@ func (s *Service) UpdateTrafficLimiterUsed(id int, used uint64) (constant.Traffi
 		s.closeAllNodes()
 		return updatedLimiter, err
 	}
-	for _, node := range nodes {
-		if node, ok := s.nodes[node.UUID]; ok {
-			node.UpdateTrafficLimiter(updatedLimiter)
-		}
-	}
+	s.dispatchToNodes(nodes, func(node constant.ConnectedNode) {
+		node.UpdateTrafficLimiter(updatedLimiter)
+	})
 	return updatedLimiter, nil
 }
 
@@ -591,11 +593,9 @@ func (s *Service) DeleteTrafficLimiter(id int) (constant.TrafficLimiter, error) 
 		s.closeAllNodes()
 		return deletedLimiter, err
 	}
-	for _, node := range nodes {
-		if node, ok := s.nodes[node.UUID]; ok {
-			node.DeleteTrafficLimiter(deletedLimiter)
-		}
-	}
+	s.dispatchToNodes(nodes, func(node constant.ConnectedNode) {
+		node.DeleteTrafficLimiter(deletedLimiter)
+	})
 	return deletedLimiter, nil
 }
 
@@ -617,11 +617,9 @@ func (s *Service) CreateConnectionLimiter(limiter constant.ConnectionLimiterCrea
 		s.closeAllNodes()
 		return createdLimiter, err
 	}
-	for _, node := range nodes {
-		if node, ok := s.nodes[node.UUID]; ok {
-			node.UpdateConnectionLimiter(createdLimiter)
-		}
-	}
+	s.dispatchToNodes(nodes, func(node constant.ConnectedNode) {
+		node.UpdateConnectionLimiter(createdLimiter)
+	})
 	return createdLimiter, nil
 }
 
@@ -655,11 +653,9 @@ func (s *Service) UpdateConnectionLimiter(id int, limiter constant.ConnectionLim
 		s.closeAllNodes()
 		return updatedLimiter, err
 	}
-	for _, node := range nodes {
-		if node, ok := s.nodes[node.UUID]; ok {
-			node.UpdateConnectionLimiter(updatedLimiter)
-		}
-	}
+	s.dispatchToNodes(nodes, func(node constant.ConnectedNode) {
+		node.UpdateConnectionLimiter(updatedLimiter)
+	})
 	if limiter.LockType != "manager" {
 		s.connLockMtx.Lock()
 		defer s.connLockMtx.Unlock()
@@ -682,11 +678,9 @@ func (s *Service) DeleteConnectionLimiter(id int) (constant.ConnectionLimiter, e
 		s.closeAllNodes()
 		return deletedLimiter, err
 	}
-	for _, node := range nodes {
-		if node, ok := s.nodes[node.UUID]; ok {
-			node.DeleteConnectionLimiter(deletedLimiter)
-		}
-	}
+	s.dispatchToNodes(nodes, func(node constant.ConnectedNode) {
+		node.DeleteConnectionLimiter(deletedLimiter)
+	})
 	if deletedLimiter.LockType == "manager" {
 		s.connLockMtx.Lock()
 		defer s.connLockMtx.Unlock()
@@ -713,11 +707,9 @@ func (s *Service) CreateRateLimiter(limiter constant.RateLimiterCreate) (constan
 		s.closeAllNodes()
 		return createdLimiter, err
 	}
-	for _, node := range nodes {
-		if node, ok := s.nodes[node.UUID]; ok {
-			node.UpdateRateLimiter(createdLimiter)
-		}
-	}
+	s.dispatchToNodes(nodes, func(node constant.ConnectedNode) {
+		node.UpdateRateLimiter(createdLimiter)
+	})
 	return createdLimiter, nil
 }
 
@@ -751,11 +743,9 @@ func (s *Service) UpdateRateLimiter(id int, limiter constant.RateLimiterUpdate) 
 		s.closeAllNodes()
 		return updatedLimiter, err
 	}
-	for _, node := range nodes {
-		if node, ok := s.nodes[node.UUID]; ok {
-			node.UpdateRateLimiter(updatedLimiter)
-		}
-	}
+	s.dispatchToNodes(nodes, func(node constant.ConnectedNode) {
+		node.UpdateRateLimiter(updatedLimiter)
+	})
 	return updatedLimiter, nil
 }
 
@@ -773,11 +763,9 @@ func (s *Service) DeleteRateLimiter(id int) (constant.RateLimiter, error) {
 		s.closeAllNodes()
 		return deletedLimiter, err
 	}
-	for _, node := range nodes {
-		if node, ok := s.nodes[node.UUID]; ok {
-			node.DeleteRateLimiter(deletedLimiter)
-		}
-	}
+	s.dispatchToNodes(nodes, func(node constant.ConnectedNode) {
+		node.DeleteRateLimiter(deletedLimiter)
+	})
 	return deletedLimiter, nil
 }
 
@@ -922,6 +910,7 @@ func (s *Service) Start(stage adapter.StartStage) error {
 }
 
 func (s *Service) Close() error {
+	s.broadcastPool.Stop()
 	return nil
 }
 
@@ -933,6 +922,22 @@ type TrafficUsage struct {
 func (s *Service) closeAllNodes() {
 	for _, node := range s.nodes {
 		node.Close()
+	}
+}
+
+func (s *Service) dispatchToNodes(nodes []constant.Node, fn func(node constant.ConnectedNode)) {
+	awaits := make([]<-chan struct{}, 0, len(nodes))
+	for _, node := range nodes {
+		connectedNode, ok := s.nodes[node.UUID]
+		if !ok {
+			continue
+		}
+		awaits = append(awaits, tools.Await(s.broadcastQueue, func() {
+			fn(connectedNode)
+		}))
+	}
+	for _, await := range awaits {
+		<-await
 	}
 }
 

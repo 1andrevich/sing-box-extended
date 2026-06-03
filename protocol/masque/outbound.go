@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing-box/adapter/outbound"
 	"github.com/sagernet/sing-box/common/cloudflare"
 	"github.com/sagernet/sing-box/common/dialer"
@@ -99,7 +100,7 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 			logger.ErrorContext(ctx, E.New("failed to generate cert: ", err))
 			return
 		}
-		tlsConfig, err := tls.NewMASQUEClient(ctx, logger, "consumer-masque.cloudflareclient.com", cert, privKey, peerPubKey, options.MASQUEOutboundTLSOptions)
+		tlsConfig, err := tls.NewMASQUEClient(ctx, logger, "consumer-masque.cloudflareclient.com", cert, privKey, peerPubKey, common.PtrValueOrDefault(options.TLS))
 		if err != nil {
 			logger.ErrorContext(ctx, E.New("failed to prepare TLS config: ", err))
 			return

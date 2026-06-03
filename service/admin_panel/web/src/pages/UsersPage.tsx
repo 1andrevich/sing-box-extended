@@ -17,10 +17,16 @@ import {
 
 // Display labels mirror service/admin_panel/tables/user.go.
 const USER_TYPES: { value: UserType; label: string }[] = [
+  { value: "anytls", label: "AnyTLS" },
+  { value: "http", label: "HTTP" },
   { value: "hysteria", label: "Hysteria" },
   { value: "hysteria2", label: "Hysteria2" },
+  { value: "mixed", label: "Mixed" },
   { value: "mtproxy", label: "MTProxy" },
+  { value: "naive", label: "Naive" },
+  { value: "socks", label: "SOCKS" },
   { value: "trojan", label: "Trojan" },
+  { value: "trusttunnel", label: "TrustTunnel" },
   { value: "tuic", label: "TUIC" },
   { value: "vless", label: "VLESS" },
   { value: "vmess", label: "VMess" },
@@ -38,7 +44,7 @@ const FLOW_OPTIONS: { value: string; label: string }[] = [
 // same rule up-front (required fields invisible for the current type
 // are filtered out before validateRequired runs).
 const SHOW_UUID = new Set<UserType>(["vless", "vmess", "tuic"]);
-const SHOW_PASSWORD = new Set<UserType>(["hysteria", "hysteria2", "trojan", "tuic"]);
+const SHOW_PASSWORD = new Set<UserType>(["anytls", "http", "hysteria", "hysteria2", "mixed", "naive", "socks", "trojan", "trusttunnel", "tuic"]);
 const SHOW_SECRET = new Set<UserType>(["mtproxy"]);
 const SHOW_FLOW = new Set<UserType>(["vless"]);
 const SHOW_ALTER_ID = new Set<UserType>(["vmess"]);

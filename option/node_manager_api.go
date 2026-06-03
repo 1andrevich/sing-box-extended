@@ -5,6 +5,7 @@ import (
 	E "github.com/sagernet/sing/common/exceptions"
 	"github.com/sagernet/sing/common/json"
 	"github.com/sagernet/sing/common/json/badjson"
+	"github.com/sagernet/sing/common/json/badoption"
 )
 
 type _NodeManagerAPIOptions struct {
@@ -57,8 +58,10 @@ func (o *NodeManagerAPIOptions) UnmarshalJSON(bytes []byte) error {
 type NodeManagerAPIServerOptions struct {
 	ListenOptions
 	InboundTLSOptionsContainer
-	Manager string `json:"manager"`
-	APIKey  string `json:"api_key"`
+	Manager          string             `json:"manager"`
+	APIKey           string             `json:"api_key"`
+	KeepAlive        badoption.Duration `json:"keep_alive,omitempty"`
+	KeepAliveTimeout badoption.Duration `json:"keep_alive_timeout,omitempty"`
 }
 
 type NodeManagerAPIClientOptions struct {

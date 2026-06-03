@@ -48,6 +48,8 @@
       //   - SIP008 (shadowsocks)
       //   - Raw shareable links (vless://, vmess://, ss://, trojan://, ...)
       "path": "subscriptions/my-sub.txt",
+      // Remove emoji flags from proxy names.
+      "remove_emojis": true,
       "health_check": {
         "enabled": true,
         "url": "https://www.gstatic.com/generate_204",

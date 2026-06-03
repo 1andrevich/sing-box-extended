@@ -67,7 +67,7 @@ type UserCreate struct {
 	SquadIDs []int  `json:"squad_ids" validate:"required,min=1"`
 	Username string `json:"username" validate:"required"`
 	Inbound  string `json:"inbound" validate:"required"`
-	Type     string `json:"type" validate:"required,oneof=hysteria hysteria2 mtproxy trojan tuic vless vmess"`
+	Type     string `json:"type" validate:"required,oneof=anytls http hysteria hysteria2 mixed mtproxy naive socks trojan trusttunnel tuic vless vmess"`
 	UUID     string `json:"uuid" validate:"omitempty,uuid4"`
 	Password string `json:"password" validate:"omitempty"`
 	Secret   string `json:"secret" validate:"omitempty"`
@@ -140,7 +140,7 @@ type BandwidthLimiter struct {
 	Strategy       string    `json:"strategy" validate:"required"`
 	ConnectionType string    `json:"connection_type" validate:"omitempty"`
 	Mode           string    `json:"mode" validate:"required"`
-	FlowKeys      []string  `json:"flow_keys" validate:"omitempty,dive,oneof=user destination ip hwid mux"`
+	FlowKeys       []string  `json:"flow_keys" validate:"omitempty,dive,oneof=user source_ip hwid mux protocol destination"`
 	Speed          string    `json:"speed" validate:"required"`
 	RawSpeed       uint64    `json:"raw_speed" validate:"required"`
 	CreatedAt      time.Time `json:"created_at" validate:"required"`
@@ -154,7 +154,7 @@ type BandwidthLimiterCreate struct {
 	Strategy       string   `json:"strategy" validate:"required,oneof=global connection bypass"`
 	ConnectionType string   `json:"connection_type" validate:"excluded_if=Strategy bypass,omitempty"`
 	Mode           string   `json:"mode" validate:"excluded_if=Strategy bypass,required_unless=Strategy bypass"`
-	FlowKeys      []string `json:"flow_keys" validate:"excluded_if=Strategy bypass,omitempty,dive,oneof=user destination ip hwid mux"`
+	FlowKeys       []string `json:"flow_keys" validate:"excluded_if=Strategy bypass,omitempty,dive,oneof=user source_ip hwid mux protocol destination"`
 	Speed          string   `json:"speed" validate:"excluded_if=Strategy bypass,required_unless=Strategy bypass"`
 }
 
@@ -164,7 +164,7 @@ type BandwidthLimiterUpdate struct {
 	Strategy       string   `json:"strategy" validate:"required,oneof=global connection bypass"`
 	ConnectionType string   `json:"connection_type" validate:"excluded_if=Strategy bypass,omitempty"`
 	Mode           string   `json:"mode" validate:"excluded_if=Strategy bypass,required_unless=Strategy bypass"`
-	FlowKeys      []string `json:"flow_keys" validate:"excluded_if=Strategy bypass,omitempty,dive,oneof=user destination ip hwid mux"`
+	FlowKeys       []string `json:"flow_keys" validate:"excluded_if=Strategy bypass,omitempty,dive,oneof=user source_ip hwid mux protocol destination"`
 	Speed          string   `json:"speed" validate:"excluded_if=Strategy bypass,required_unless=Strategy bypass"`
 }
 
@@ -174,7 +174,7 @@ type BaseBandwidthLimiter struct {
 	Strategy       string   `json:"strategy" validate:"required,oneof=global connection bypass"`
 	ConnectionType string   `json:"connection_type" validate:"excluded_if=Strategy bypass,omitempty"`
 	Mode           string   `json:"mode" validate:"excluded_if=Strategy bypass,required_unless=Strategy bypass"`
-	FlowKeys      []string `json:"flow_keys" validate:"excluded_if=Strategy bypass,omitempty,dive,oneof=user destination ip hwid mux"`
+	FlowKeys       []string `json:"flow_keys" validate:"excluded_if=Strategy bypass,omitempty,dive,oneof=user source_ip hwid mux protocol destination"`
 	Speed          string   `json:"speed" validate:"excluded_if=Strategy bypass,required_unless=Strategy bypass"`
 	RawSpeed       uint64   `json:"raw_speed" validate:"excluded_if=Strategy bypass,required_unless=Strategy bypass"`
 }
@@ -261,3 +261,5 @@ type BaseRateLimiter struct {
 	Count          uint32 `json:"count" validate:"excluded_if=Strategy bypass,required_unless=Strategy bypass"`
 	Interval       string `json:"interval" validate:"excluded_if=Strategy bypass,required_unless=Strategy bypass"`
 }
+
+

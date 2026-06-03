@@ -212,5 +212,5 @@ func (l *TrafficLimiter) UpdateRemainingTraffic() error {
 	} else {
 		l.new += new
 	}
-	return nil
+	return err
 }

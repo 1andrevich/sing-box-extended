@@ -34,10 +34,16 @@ export interface NodeUpdate {
 export type NodeStatus = "online" | "offline";
 
 export type UserType =
+  | "anytls"
+  | "http"
   | "hysteria"
   | "hysteria2"
+  | "mixed"
   | "mtproxy"
+  | "naive"
+  | "socks"
   | "trojan"
+  | "trusttunnel"
   | "tuic"
   | "vless"
   | "vmess";

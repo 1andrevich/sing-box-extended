@@ -3,6 +3,8 @@ package provider
 import (
 	"context"
 	"reflect"
+	"regexp"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -34,10 +36,11 @@ type Adapter struct {
 	callbackAccess sync.Mutex
 	callbacks      list.List[adapter.ProviderUpdateCallback]
 
-	link     string
-	enabled  bool
-	timeout  time.Duration
-	interval time.Duration
+	link         string
+	enabled      bool
+	removeEmojis bool
+	timeout      time.Duration
+	interval     time.Duration
 }
 
 func NewAdapter(ctx context.Context, router adapter.Router, outbound adapter.OutboundManager, logFactory log.Factory, logger log.ContextLogger, providerTag string, providerType string, options option.ProviderHealthCheckOptions) Adapter {
@@ -66,6 +69,10 @@ func NewAdapter(ctx context.Context, router adapter.Router, outbound adapter.Out
 		timeout:  timeout,
 		interval: interval,
 	}
+}
+
+func (a *Adapter) SetRemoveEmojis(remove bool) {
+	a.removeEmojis = remove
 }
 
 func (a *Adapter) Start() error {
@@ -102,6 +109,10 @@ func (a *Adapter) Outbound(tag string) (adapter.Outbound, bool) {
 }
 
 func (a *Adapter) UpdateOutbounds(oldOpts []option.Outbound, newOpts []option.Outbound) {
+	if a.removeEmojis {
+		removeEmojisFromTags(newOpts)
+	}
+	uniquifyTags(newOpts)
 	a.removeUseless(newOpts)
 	var (
 		oldOptByTag    = make(map[string]option.Outbound)
@@ -265,3 +276,24 @@ func (a *Adapter) removeUseless(newOpts []option.Outbound) {
 		}
 	}
 }
+
+func uniquifyTags(opts []option.Outbound) {
+	count := make(map[string]int)
+	for i, opt := range opts {
+		count[opt.Tag]++
+		if count[opt.Tag] > 1 {
+			opts[i].Tag = F.ToString(opt.Tag, " #", count[opt.Tag])
+		}
+	}
+}
+
+func removeEmojisFromTags(opts []option.Outbound) {
+	for i, opt := range opts {
+		cleaned := emojiRegex.ReplaceAllString(opt.Tag, "")
+		cleaned = multiSpaceRegex.ReplaceAllString(cleaned, " ")
+		opts[i].Tag = strings.TrimSpace(cleaned)
+	}
+}
+
+var emojiRegex = regexp.MustCompile(`[\x{1F1E0}-\x{1F1FF}\x{1F300}-\x{1F9FF}\x{2600}-\x{27BF}\x{FE00}-\x{FE0F}\x{200D}]+`)
+var multiSpaceRegex = regexp.MustCompile(`\s{2,}`)

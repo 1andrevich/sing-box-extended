@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/sagernet/sing-box/adapter"
 	boxService "github.com/sagernet/sing-box/adapter/service"
@@ -23,6 +24,7 @@ import (
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
@@ -134,9 +136,21 @@ func (s *APIServer) Start(stage adapter.StartStage) error {
 		}
 		tcpListener = aTLS.NewListener(tcpListener, s.tlsConfig)
 	}
+	keepAliveTime := time.Duration(s.options.KeepAlive)
+	if keepAliveTime <= 0 {
+		keepAliveTime = 10 * time.Second
+	}
+	keepAliveTimeout := time.Duration(s.options.KeepAliveTimeout)
+	if keepAliveTimeout <= 0 {
+		keepAliveTimeout = 5 * time.Second
+	}
 	s.grpcServer = grpc.NewServer(
 		grpc.ChainUnaryInterceptor(s.unaryAuthInterceptor),
 		grpc.StreamInterceptor(s.streamAuthInterceptor),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			Time:    keepAliveTime,
+			Timeout: keepAliveTimeout,
+		}),
 	)
 	pb.RegisterManagerServer(s.grpcServer, s)
 	go func() {

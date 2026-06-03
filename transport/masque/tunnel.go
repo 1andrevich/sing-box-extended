@@ -16,17 +16,11 @@ import (
 	M "github.com/sagernet/sing/common/metadata"
 )
 
-type TunnelDevice interface {
-	ReadPacket(buf []byte) (int, error)
-	WritePacket(pkt []byte) error
-}
-
 type Tunnel struct {
-	ctx          context.Context
-	logger       logger.ContextLogger
-	options      TunnelOptions
-	tunDevice    Device
-	tunnelDevice TunnelDevice
+	ctx     context.Context
+	logger  logger.ContextLogger
+	options TunnelOptions
+	device  Device
 
 	udpConn net.PacketConn
 	tr      *http3.Transport
@@ -49,17 +43,16 @@ func NewTunnel(ctx context.Context, logger logger.ContextLogger, options TunnelO
 		return nil, E.Cause(err, "create MASQUE device")
 	}
 	return &Tunnel{
-		ctx:          ctx,
-		logger:       logger,
-		options:      options,
-		tunDevice:    tunDevice,
-		tunnelDevice: NewNetstackAdapter(tunDevice),
+		ctx:     ctx,
+		logger:  logger,
+		options: options,
+		device:  tunDevice,
 	}, nil
 }
 
 func (e *Tunnel) Start(resolve bool) error {
 	if resolve {
-		err := e.tunDevice.Start()
+		err := e.device.Start()
 		if err != nil {
 			return err
 		}
@@ -72,14 +65,14 @@ func (e *Tunnel) DialContext(ctx context.Context, network string, destination M.
 	if !destination.Addr.IsValid() {
 		return nil, E.Cause(os.ErrInvalid, "invalid non-IP destination")
 	}
-	return e.tunDevice.DialContext(ctx, network, destination)
+	return e.device.DialContext(ctx, network, destination)
 }
 
 func (e *Tunnel) ListenPacket(ctx context.Context, destination M.Socksaddr) (net.PacketConn, error) {
 	if !destination.Addr.IsValid() {
 		return nil, E.Cause(os.ErrInvalid, "invalid non-IP destination")
 	}
-	return e.tunDevice.ListenPacket(ctx, destination)
+	return e.device.ListenPacket(ctx, destination)
 }
 
 func (e *Tunnel) Close() error {
@@ -95,14 +88,16 @@ func (e *Tunnel) Close() error {
 		}
 		e.ipConn = nil
 	}
-	return e.tunDevice.Close()
+	return e.device.Close()
 }
 
 func (e *Tunnel) maintainTunnel() {
 	go func() {
-		buf := make([]byte, 1280)
+		bufs := make([][]byte, 1)
+		bufs[0] = make([]byte, 1280)
+		sizes := make([]int, 1)
 		for e.ctx.Err() == nil {
-			n, err := e.tunnelDevice.ReadPacket(buf)
+			_, err := e.device.Read(bufs, sizes, 0)
 			if err != nil {
 				e.logger.ErrorContext(e.ctx, fmt.Errorf("failed to read from TUN device: %v", err))
 				continue
@@ -111,7 +106,7 @@ func (e *Tunnel) maintainTunnel() {
 			if err != nil {
 				return
 			}
-			icmp, err := ipConn.WritePacket(buf[:n])
+			icmp, err := ipConn.WritePacket(bufs[0][:sizes[0]])
 			if err != nil {
 				if errors.As(err, new(*connectip.CloseError)) {
 					if ok := e.closeIpConn(ipConn); ok {
@@ -123,7 +118,7 @@ func (e *Tunnel) maintainTunnel() {
 				continue
 			}
 			if len(icmp) > 0 {
-				if err := e.tunnelDevice.WritePacket(icmp); err != nil {
+				if _, err := e.device.Write([][]byte{icmp}, 0); err != nil {
 					if errors.As(err, new(*connectip.CloseError)) {
 						e.logger.ErrorContext(e.ctx, fmt.Errorf("connection closed while writing ICMP to TUN device: %v", err))
 						continue
@@ -151,7 +146,7 @@ func (e *Tunnel) maintainTunnel() {
 				e.logger.ErrorContext(e.ctx, fmt.Errorf("Error reading from IP connection: %v, continuine...", err))
 				continue
 			}
-			if err := e.tunnelDevice.WritePacket(buf[:n]); err != nil {
+			if _, err := e.device.Write([][]byte{buf[:n]}, 0); err != nil {
 				continue
 			}
 		}

@@ -51,3 +51,5 @@ type Repository interface {
 	UpdateRateLimiter(id int, limiter RateLimiterUpdate) (RateLimiter, error)
 	DeleteRateLimiter(id int) (RateLimiter, error)
 }
+
+

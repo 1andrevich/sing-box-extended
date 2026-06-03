@@ -1,0 +1,29 @@
+{
+  "inbounds": [
+    {
+      "type": "mixed",
+      "listen": "127.0.0.1",
+      "listen_port": 1080
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "sudoku",
+      "server": "your-server.com",
+      "server_port": 443,
+      "key": "your-secret-key",
+      "tls": {
+        "enabled": true,
+        "fragment": true,
+        "fragment_fallback_delay": "300ms"
+      },
+      "http_mask": {
+        "enabled": true,
+        "mode": "stream",
+        "host": "cdn.example.com",
+        "path_root": "secret",
+        "multiplex": "auto"
+      }
+    }
+  ]
+}

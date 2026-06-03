@@ -11,8 +11,9 @@ import (
 )
 
 type VLESSManager struct {
-	access   sync.Mutex
 	inbounds map[string]*VLESSUserManager
+
+	mtx sync.Mutex
 }
 
 func NewVLESSManager() *VLESSManager {
@@ -22,8 +23,8 @@ func NewVLESSManager() *VLESSManager {
 }
 
 func (m *VLESSManager) AddUserManager(inbound adapter.Inbound) error {
-	m.access.Lock()
-	defer m.access.Unlock()
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 	m.inbounds[inbound.Tag()] = &VLESSUserManager{
 		inbound:  inbound.(*vless.Inbound),
 		usersMap: make(map[string]option.VLESSUser),
@@ -32,15 +33,15 @@ func (m *VLESSManager) AddUserManager(inbound adapter.Inbound) error {
 }
 
 func (m *VLESSManager) GetUserManager(tag string) (constant.UserManager, bool) {
-	m.access.Lock()
-	defer m.access.Unlock()
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 	inbound, ok := m.inbounds[tag]
 	return inbound, ok
 }
 
 func (m *VLESSManager) GetUserManagerTags() []string {
-	m.access.Lock()
-	defer m.access.Unlock()
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 	tags := make([]string, 0, len(m.inbounds))
 	for tag := range m.inbounds {
 		tags = append(tags, tag)

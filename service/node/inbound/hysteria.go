@@ -11,8 +11,9 @@ import (
 )
 
 type HysteriaManager struct {
-	access   sync.Mutex
 	inbounds map[string]*HysteriaUserManager
+
+	mtx sync.Mutex
 }
 
 func NewHysteriaManager() *HysteriaManager {
@@ -22,8 +23,8 @@ func NewHysteriaManager() *HysteriaManager {
 }
 
 func (m *HysteriaManager) AddUserManager(inbound adapter.Inbound) error {
-	m.access.Lock()
-	defer m.access.Unlock()
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 	m.inbounds[inbound.Tag()] = &HysteriaUserManager{
 		inbound:  inbound.(*hysteria.Inbound),
 		usersMap: make(map[string]option.HysteriaUser),
@@ -32,15 +33,15 @@ func (m *HysteriaManager) AddUserManager(inbound adapter.Inbound) error {
 }
 
 func (m *HysteriaManager) GetUserManager(tag string) (constant.UserManager, bool) {
-	m.access.Lock()
-	defer m.access.Unlock()
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 	inbound, ok := m.inbounds[tag]
 	return inbound, ok
 }
 
 func (m *HysteriaManager) GetUserManagerTags() []string {
-	m.access.Lock()
-	defer m.access.Unlock()
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 	tags := make([]string, 0, len(m.inbounds))
 	for tag := range m.inbounds {
 		tags = append(tags, tag)

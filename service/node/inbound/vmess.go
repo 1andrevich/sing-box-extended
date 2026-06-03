@@ -12,7 +12,8 @@ import (
 
 type VMessManager struct {
 	inbounds map[string]*VMessUserManager
-	mtx      sync.Mutex
+
+	mtx sync.Mutex
 }
 
 func NewVMessManager() *VMessManager {

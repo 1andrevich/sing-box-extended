@@ -44,10 +44,11 @@ const CONN_TYPES: { value: ConnectionType; label: string }[] = [
 ];
 const FLOW_KEYS: { value: string; label: string }[] = [
   { value: "user", label: "User" },
-  { value: "destination", label: "Destination" },
+  { value: "source_ip", label: "Source IP" },
   { value: "hwid", label: "HWID" },
   { value: "mux", label: "Mux" },
-  { value: "source_ip", label: "Source IP" },
+  { value: "protocol", label: "Protocol" },
+  { value: "destination", label: "Destination" },
 ];
 
 export function BandwidthLimitersPage() {

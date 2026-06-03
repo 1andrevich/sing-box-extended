@@ -31,6 +31,7 @@ import (
 	"github.com/sagernet/sing-box/protocol/limiter/rate"
 	"github.com/sagernet/sing-box/protocol/limiter/traffic"
 	"github.com/sagernet/sing-box/protocol/mieru"
+
 	"github.com/sagernet/sing-box/protocol/mixed"
 	"github.com/sagernet/sing-box/protocol/naive"
 	"github.com/sagernet/sing-box/protocol/parser"
@@ -83,10 +84,12 @@ func InboundRegistry() *inbound.Registry {
 
 	bond.RegisterInbound(registry)
 	failover.RegisterInbound(registry)
+	registerTrustTunnelInbound(registry)
 
 	registerQUICInbounds(registry)
 	registerStubForRemovedInbounds(registry)
 	registerMTProxyInbound(registry)
+	registerSudokuInbound(registry)
 
 	return registry
 }
@@ -115,9 +118,11 @@ func OutboundRegistry() *outbound.Registry {
 	mieru.RegisterOutbound(registry)
 	anytls.RegisterOutbound(registry)
 	registerMASQUEOutbound(registry)
+	registerOpenVPNOutbound(registry)
 
 	bond.RegisterOutbound(registry)
 	failover.RegisterOutbound(registry)
+	registerTrustTunnelOutbound(registry)
 
 	bandwidth.RegisterOutbound(registry)
 	connection.RegisterOutbound(registry)
@@ -128,6 +133,7 @@ func OutboundRegistry() *outbound.Registry {
 
 	registerQUICOutbounds(registry)
 	registerStubForRemovedOutbounds(registry)
+	registerSudokuOutbound(registry)
 
 	return registry
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/adapter/outbound"
 	C "github.com/sagernet/sing-box/constant"
+	"github.com/sagernet/sing-box/common/onclose"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing-box/route"
@@ -110,7 +111,7 @@ func (h *Outbound) DialContext(ctx context.Context, network string, destination 
 		onClose()
 		return nil, err
 	}
-	conn = newConnWithCloseHandlerFunc(conn, onClose)
+	conn = onclose.NewConn(conn, onClose)
 	if lockCtx != nil {
 		go connChecker(lockCtx, conn.Close)
 	}
@@ -127,7 +128,7 @@ func (h *Outbound) ListenPacket(ctx context.Context, destination M.Socksaddr) (n
 		onClose()
 		return nil, err
 	}
-	conn = newPacketConnWithCloseHandlerFunc(conn, onClose)
+	conn = onclose.NewPacketConn(conn, onClose)
 	if lockCtx != nil {
 		go connChecker(lockCtx, conn.Close)
 	}
@@ -141,7 +142,7 @@ func (h *Outbound) NewConnectionEx(ctx context.Context, conn net.Conn, metadata 
 		N.CloseOnHandshakeFailure(conn, onClose, err)
 		return
 	}
-	conn = newConnWithCloseHandlerFunc(conn, limiterOnClose)
+	conn = onclose.NewConn(conn, limiterOnClose)
 	if lockCtx != nil {
 		go connChecker(lockCtx, conn.Close)
 	}
@@ -158,7 +159,7 @@ func (h *Outbound) NewPacketConnectionEx(ctx context.Context, conn N.PacketConn,
 		N.CloseOnHandshakeFailure(conn, onClose, err)
 		return
 	}
-	conn = bufio.NewPacketConn(newPacketConnWithCloseHandlerFunc(bufio.NewNetPacketConn(conn), limiterOnClose))
+	conn = bufio.NewPacketConn(onclose.NewPacketConn(bufio.NewNetPacketConn(conn), limiterOnClose))
 	if lockCtx != nil {
 		go connChecker(lockCtx, conn.Close)
 	}
@@ -172,33 +173,7 @@ func (h *Outbound) GetStrategy() ConnectionStrategy {
 	return h.strategy
 }
 
-type connWithCloseHandlerFunc struct {
-	net.Conn
-	onClose CloseHandlerFunc
-}
 
-func newConnWithCloseHandlerFunc(conn net.Conn, onClose CloseHandlerFunc) *connWithCloseHandlerFunc {
-	return &connWithCloseHandlerFunc{conn, onClose}
-}
-
-func (conn *connWithCloseHandlerFunc) Close() error {
-	conn.onClose()
-	return conn.Conn.Close()
-}
-
-type packetConnWithCloseHandlerFunc struct {
-	net.PacketConn
-	onClose CloseHandlerFunc
-}
-
-func newPacketConnWithCloseHandlerFunc(conn net.PacketConn, onClose CloseHandlerFunc) *packetConnWithCloseHandlerFunc {
-	return &packetConnWithCloseHandlerFunc{conn, onClose}
-}
-
-func (conn *packetConnWithCloseHandlerFunc) Close() error {
-	conn.onClose()
-	return conn.PacketConn.Close()
-}
 
 func connChecker(ctx context.Context, closeFunc func() error) {
 	<-ctx.Done()

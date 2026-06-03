@@ -5,6 +5,7 @@ import (
 )
 
 type MASQUEOutboundOptions struct {
+	DialerOptions
 	UseHTTP2             bool               `json:"use_http2,omitempty"`
 	UseIPv6              bool               `json:"use_ipv6,omitempty"`
 	Profile              CloudflareProfile  `json:"profile,omitempty"`
@@ -12,8 +13,7 @@ type MASQUEOutboundOptions struct {
 	UDPKeepalivePeriod   badoption.Duration `json:"udp_keepalive_period,omitempty"`
 	UDPInitialPacketSize uint16             `json:"udp_initial_packet_size,omitempty"`
 	ReconnectDelay       badoption.Duration `json:"reconnect_delay,omitempty"`
-	MASQUEOutboundTLSOptions
-	DialerOptions
+	MASQUEOutboundTLSOptionsContainer
 }
 
 type MASQUEOutboundTLSOptions struct {
@@ -28,5 +28,5 @@ type MASQUEOutboundTLSOptions struct {
 }
 
 type MASQUEOutboundTLSOptionsContainer struct {
-	TLS *OutboundTLSOptions `json:"tls,omitempty"`
+	TLS *MASQUEOutboundTLSOptions `json:"tls,omitempty"`
 }

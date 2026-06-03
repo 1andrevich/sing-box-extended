@@ -6,18 +6,17 @@ import (
 	"sync"
 
 	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing-box/common/onclose"
 	"github.com/sagernet/sing-box/log"
 	E "github.com/sagernet/sing/common/exceptions"
 )
 
 type (
-	CloseHandlerFunc = func()
-
 	ConnIDGetter = func(context.Context, *adapter.InboundContext) (string, bool)
-	LockIDGetter = func(string) (CloseHandlerFunc, context.Context, error)
+	LockIDGetter = func(string) (onclose.CloseHandlerFunc, context.Context, error)
 
 	ConnectionStrategy interface {
-		request(ctx context.Context, metadata *adapter.InboundContext) (onClose CloseHandlerFunc, lockCtx context.Context, err error)
+		request(ctx context.Context, metadata *adapter.InboundContext) (onClose onclose.CloseHandlerFunc, lockCtx context.Context, err error)
 	}
 )
 
@@ -36,7 +35,7 @@ func NewDefaultConnectionStrategy(connIDGetter ConnIDGetter, lockIDGetter LockID
 	return outbound
 }
 
-func (s *DefaultConnectionStrategy) request(ctx context.Context, metadata *adapter.InboundContext) (CloseHandlerFunc, context.Context, error) {
+func (s *DefaultConnectionStrategy) request(ctx context.Context, metadata *adapter.InboundContext) (onclose.CloseHandlerFunc, context.Context, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	id, ok := s.connIDGetter(ctx, metadata)
@@ -57,7 +56,7 @@ func NewUsersConnectionStrategy(strategies map[string]ConnectionStrategy) *Users
 	}
 }
 
-func (s *UsersConnectionStrategy) request(ctx context.Context, metadata *adapter.InboundContext) (CloseHandlerFunc, context.Context, error) {
+func (s *UsersConnectionStrategy) request(ctx context.Context, metadata *adapter.InboundContext) (onclose.CloseHandlerFunc, context.Context, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	var user string
@@ -71,20 +70,78 @@ func (s *UsersConnectionStrategy) request(ctx context.Context, metadata *adapter
 	return nil, nil, E.New("user strategy not found: ", user)
 }
 
+type cancelEntry struct {
+	cancel context.CancelFunc
+}
+
 type ManagerConnectionStrategy struct {
-	*UsersConnectionStrategy
+	strategies map[string]ConnectionStrategy
+	cancels    map[string][]*cancelEntry
+
+	mtx sync.Mutex
 }
 
 func NewManagerConnectionStrategy() *ManagerConnectionStrategy {
 	return &ManagerConnectionStrategy{
-		UsersConnectionStrategy: NewUsersConnectionStrategy(map[string]ConnectionStrategy{}),
+		strategies: make(map[string]ConnectionStrategy),
+		cancels:    make(map[string][]*cancelEntry),
 	}
+}
+
+func (s *ManagerConnectionStrategy) request(ctx context.Context, metadata *adapter.InboundContext) (onclose.CloseHandlerFunc, context.Context, error) {
+	s.mtx.Lock()
+	var user string
+	if metadata != nil {
+		user = metadata.User
+	}
+	strategy, ok := s.strategies[user]
+	if !ok {
+		s.mtx.Unlock()
+		return nil, nil, E.New("user strategy not found: ", user)
+	}
+	s.mtx.Unlock()
+	onClose, _, err := strategy.request(ctx, metadata)
+	if err != nil {
+		return nil, nil, err
+	}
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	entry := &cancelEntry{cancel: cancel}
+	s.mtx.Lock()
+	s.cancels[user] = append(s.cancels[user], entry)
+	s.mtx.Unlock()
+	originalOnClose := onClose
+	wrappedOnClose := func() {
+		s.mtx.Lock()
+		entries := s.cancels[user]
+		for i, e := range entries {
+			if e == entry {
+				s.cancels[user] = append(entries[:i], entries[i+1:]...)
+				break
+			}
+		}
+		s.mtx.Unlock()
+		cancel()
+		if originalOnClose != nil {
+			originalOnClose()
+		}
+	}
+	return wrappedOnClose, cancelCtx, nil
 }
 
 func (s *ManagerConnectionStrategy) UpdateStrategies(strategies map[string]ConnectionStrategy) {
 	s.mtx.Lock()
-	defer s.mtx.Unlock()
+	var entries []*cancelEntry
+	for user, cancels := range s.cancels {
+		if _, exists := strategies[user]; !exists {
+			entries = append(entries, cancels...)
+			delete(s.cancels, user)
+		}
+	}
 	s.strategies = strategies
+	s.mtx.Unlock()
+	for _, entry := range entries {
+		entry.cancel()
+	}
 }
 
 type BypassConnectionStrategy struct{}
@@ -93,7 +150,7 @@ func NewBypassConnectionStrategy() *BypassConnectionStrategy {
 	return &BypassConnectionStrategy{}
 }
 
-func (s *BypassConnectionStrategy) request(ctx context.Context, metadata *adapter.InboundContext) (CloseHandlerFunc, context.Context, error) {
+func (s *BypassConnectionStrategy) request(ctx context.Context, metadata *adapter.InboundContext) (onclose.CloseHandlerFunc, context.Context, error) {
 	return func() {}, nil, nil
 }
 

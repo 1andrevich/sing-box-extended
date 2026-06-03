@@ -15,6 +15,7 @@ require (
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/go-chi/render v1.0.3
 	github.com/go-playground/validator/v10 v10.30.1
+	github.com/gobwas/ws v1.4.0
 	github.com/godbus/dbus/v5 v5.2.2
 	github.com/gofrs/uuid/v5 v5.4.0
 	github.com/golang-migrate/migrate/v4 v4.19.1
@@ -53,7 +54,7 @@ require (
 	github.com/sagernet/wireguard-go v0.0.2-beta.1.0.20260224074747-506b7631853c
 	github.com/sagernet/ws v0.0.0-20231204124109-acfe8907c854
 	github.com/shtorm-7/go-cache/v2 v2.1.0-extended-1.0.2
-	github.com/songgao/water v0.0.0-20200317203138-2b4b6d7c09d8
+	github.com/shtorm-7/workerpool v0.5.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
 	github.com/vishvananda/netns v0.0.5
@@ -75,17 +76,24 @@ require (
 
 require (
 	github.com/OneOfOne/xxhash v1.2.8 // indirect
+	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/docker/docker v28.5.2+incompatible // indirect
+	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/dunglas/httpsfv v1.1.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/lib/pq v1.10.9 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
+	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/panjf2000/ants/v2 v2.12.0 // indirect
 	github.com/quic-go/quic-go v0.59.0 // indirect
 	github.com/redis/go-redis/v9 v9.8.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/tylertreat/BoomFilters v0.0.0-20251117164519-53813c36cc1b // indirect
+	github.com/zeebo/assert v1.3.0 // indirect
+	go.opentelemetry.io/otel v1.41.0 // indirect
+	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	gvisor.dev/gvisor v0.0.0-20260408064518-65a410b0d584 // indirect
 	modernc.org/libc v1.72.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
@@ -93,14 +101,14 @@ require (
 )
 
 require (
-	filippo.io/edwards25519 v1.1.0 // indirect
+	filippo.io/edwards25519 v1.1.0
 	github.com/AdguardTeam/golibs v0.32.7 // indirect
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/akutz/memconn v0.1.0 // indirect
 	github.com/alexbrainman/sspi v0.0.0-20231016080023-1a75b4708caa // indirect
 	github.com/ameshkov/dnscrypt/v2 v2.4.0
 	github.com/ameshkov/dnsstamps v1.0.3 // indirect
-	github.com/andybalholm/brotli v1.1.0 // indirect
+	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/caddyserver/zerossl v0.1.5 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/coreos/go-iptables v0.7.1-0.20240112124308-65c67c9f46e6 // indirect
@@ -144,7 +152,7 @@ require (
 	github.com/mdlayher/netlink v1.9.0 // indirect
 	github.com/mdlayher/socket v0.5.1 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
-	github.com/pierrec/lz4/v4 v4.1.21 // indirect
+	github.com/pierrec/lz4/v4 v4.1.25 // indirect
 	github.com/pires/go-proxyproto v0.11.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus-community/pro-bing v0.4.0 // indirect
@@ -219,10 +227,12 @@ replace github.com/sagernet/sing-mux => github.com/shtorm-7/sing-mux v0.3.4-exte
 
 replace github.com/ameshkov/dnscrypt/v2 => github.com/shtorm-7/dnscrypt/v2 v2.4.0-extended-1.0.0
 
-replace github.com/sagernet/sing-vmess => github.com/starifly/sing-vmess v0.2.7-mod.9
+replace github.com/sagernet/sing-vmess => github.com/shtorm-7/sing-vmess v0.2.7-extended-1.0.0
 
 replace github.com/dolonet/mtg-multi => github.com/shtorm-7/mtg-multi v1.8.0-extended-1.0.1
 
 replace github.com/Diniboy1123/connect-ip-go => github.com/shtorm-7/connect-ip-go v1.0.0-extended-1.0.0
 
 replace github.com/shtorm-7/go-cache/v2 => github.com/shtorm-7/go-cache/v2 v2.1.0-extended-1.1.0
+
+replace github.com/sagernet/sing => github.com/shtorm-7/sing v0.8.10-extended-1.0.0

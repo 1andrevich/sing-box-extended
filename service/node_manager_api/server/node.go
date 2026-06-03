@@ -229,7 +229,7 @@ func (s *RemoteNode) send(data *pb.NodeData) {
 }
 
 func (s *RemoteNode) close(err error) {
-	if err != nil {
+	if err == nil || s.err != nil {
 		return
 	}
 	s.err = err

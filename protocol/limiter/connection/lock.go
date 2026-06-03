@@ -4,13 +4,14 @@ import (
 	"context"
 	"sync"
 
+	"github.com/sagernet/sing-box/common/onclose"
 	E "github.com/sagernet/sing/common/exceptions"
 )
 
 func NewDefaultLock(max uint32) LockIDGetter {
 	locks := make(map[string]*uint32)
 	mtx := sync.Mutex{}
-	return func(id string) (CloseHandlerFunc, context.Context, error) {
+	return func(id string) (onclose.CloseHandlerFunc, context.Context, error) {
 		mtx.Lock()
 		defer mtx.Unlock()
 		handles, ok := locks[id]
@@ -22,16 +23,13 @@ func NewDefaultLock(max uint32) LockIDGetter {
 			locks[id] = handles
 		}
 		*handles++
-		var once sync.Once
 		return func() {
-			once.Do(func() {
-				mtx.Lock()
-				defer mtx.Unlock()
-				*handles--
-				if *handles == 0 {
-					delete(locks, id)
-				}
-			})
+			mtx.Lock()
+			defer mtx.Unlock()
+			*handles--
+			if *handles == 0 {
+				delete(locks, id)
+			}
 		}, nil, nil
 	}
 }

@@ -11,8 +11,9 @@ import (
 )
 
 type TUICManager struct {
-	access   sync.Mutex
 	inbounds map[string]*TUICUserManager
+
+	mtx sync.Mutex
 }
 
 func NewTUICManager() *TUICManager {
@@ -22,8 +23,8 @@ func NewTUICManager() *TUICManager {
 }
 
 func (m *TUICManager) AddUserManager(inbound adapter.Inbound) error {
-	m.access.Lock()
-	defer m.access.Unlock()
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 	m.inbounds[inbound.Tag()] = &TUICUserManager{
 		inbound:  inbound.(*tuic.Inbound),
 		usersMap: make(map[string]option.TUICUser),
@@ -32,15 +33,15 @@ func (m *TUICManager) AddUserManager(inbound adapter.Inbound) error {
 }
 
 func (m *TUICManager) GetUserManager(tag string) (constant.UserManager, bool) {
-	m.access.Lock()
-	defer m.access.Unlock()
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 	inbound, ok := m.inbounds[tag]
 	return inbound, ok
 }
 
 func (m *TUICManager) GetUserManagerTags() []string {
-	m.access.Lock()
-	defer m.access.Unlock()
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 	tags := make([]string, 0, len(m.inbounds))
 	for tag := range m.inbounds {
 		tags = append(tags, tag)

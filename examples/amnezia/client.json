@@ -23,8 +23,7 @@
           "address": "example.com",
           "port": 10001,
           "public_key": "3nk7jdnkcL95Fc/z+GCiH7jOovEKhFkLIGPT+U/uLEQ=",
-          "allowed_ips": ["0.0.0.0/0"],
-          "reserved": "AAAA"
+          "allowed_ips": ["0.0.0.0/0"]
         }
       ],
       "udp_timeout": "5m0s",

@@ -83,7 +83,7 @@ func NewProviderRemote(ctx context.Context, router adapter.Router, logFactory lo
 	logger := logFactory.NewLogger(F.ToString("provider/remote", "[", tag, "]"))
 	updateChan := make(chan struct{})
 	close(updateChan)
-	return &ProviderRemote{
+	p := &ProviderRemote{
 		Adapter:  provider.NewAdapter(ctx, router, outbound, logFactory, logger, tag, C.ProviderTypeRemote, options.HealthCheck),
 		ctx:      ctx,
 		cancel:   cancel,
@@ -97,7 +97,9 @@ func NewProviderRemote(ctx context.Context, router adapter.Router, logFactory lo
 		updateInterval: updateInterval,
 		exclude:        (*regexp.Regexp)(options.Exclude),
 		include:        (*regexp.Regexp)(options.Include),
-	}, nil
+	}
+	p.SetRemoveEmojis(options.RemoveEmojis)
+	return p, nil
 }
 
 func (s *ProviderRemote) Start() error {

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing-box/common/onclose"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/protocol/limiter/connection"
 	CM "github.com/sagernet/sing-box/service/manager/constant"
@@ -45,7 +46,7 @@ func (m *ConnectionLimiterManager) AddConnectionLimiterStrategyManager(outbound 
 	}
 	strategy, ok := limiter.GetStrategy().(ManagedConnectionStrategy)
 	if !ok {
-		return E.New("strategy ", strategy, " is not manager")
+		return E.New("strategy for outbound ", outbound.Tag(), " is not manager")
 	}
 	m.managers[outbound.Tag()] = &ConnectionLimiterStrategyManager{
 		manager:       m,
@@ -152,7 +153,7 @@ type ManagerLock struct {
 func (i *ConnectionLimiterStrategyManager) newManagerLock(limiterId int) connection.LockIDGetter {
 	conns := make(map[string]*ManagerLock)
 	mtx := sync.Mutex{}
-	return func(id string) (connection.CloseHandlerFunc, context.Context, error) {
+	return func(id string) (onclose.CloseHandlerFunc, context.Context, error) {
 		mtx.Lock()
 		defer mtx.Unlock()
 		conn, ok := conns[id]
@@ -171,6 +172,7 @@ func (i *ConnectionLimiterStrategyManager) newManagerLock(limiterId int) connect
 					case <-time.After(time.Second * 5):
 						err := nodeManager.RefreshLock(limiterId, id, handleId)
 						if err != nil {
+							i.manager.logger.ErrorContext(ctx, "failed to refresh lock: ", err)
 							cancel()
 							return
 						}
@@ -185,18 +187,17 @@ func (i *ConnectionLimiterStrategyManager) newManagerLock(limiterId int) connect
 			conns[id] = conn
 		}
 		conn.handles++
-		var once sync.Once
 		return func() {
-			once.Do(func() {
-				mtx.Lock()
-				defer mtx.Unlock()
-				conn.handles--
-				if conn.handles == 0 {
-					conn.cancel()
-					i.manager.nodeManager.ReleaseLock(limiterId, id, conn.handleId)
-					delete(conns, id)
+			mtx.Lock()
+			defer mtx.Unlock()
+			conn.handles--
+			if conn.handles == 0 {
+				conn.cancel()
+				if err := i.manager.nodeManager.ReleaseLock(limiterId, id, conn.handleId); err != nil {
+					i.manager.logger.ErrorContext(i.manager.ctx, "failed to release lock: ", err)
 				}
-			})
+				delete(conns, id)
+			}
 		}, conn.ctx, nil
 	}
 }

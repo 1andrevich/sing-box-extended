@@ -46,13 +46,14 @@ func NewProviderInline(ctx context.Context, router adapter.Router, logFactory lo
 		outbound = service.FromContext[adapter.OutboundManager](ctx)
 		logger   = logFactory.NewLogger(F.ToString("provider/inline", "[", tag, "]"))
 	)
-	provider := &ProviderLocal{
+	p := &ProviderLocal{
 		Adapter: provider.NewAdapter(ctx, router, outbound, logFactory, logger, tag, C.ProviderTypeInline, options.HealthCheck),
 		ctx:     ctx,
 		logger:  logger,
 	}
-	provider.UpdateOutbounds(nil, options.Outbounds)
-	return provider, nil
+	p.SetRemoveEmojis(options.RemoveEmojis)
+	p.UpdateOutbounds(nil, options.Outbounds)
+	return p, nil
 }
 
 func NewProviderLocal(ctx context.Context, router adapter.Router, logFactory log.Factory, tag string, options option.ProviderLocalOptions) (adapter.Provider, error) {
@@ -69,6 +70,7 @@ func NewProviderLocal(ctx context.Context, router adapter.Router, logFactory log
 		logger:   logger,
 		provider: service.FromContext[adapter.ProviderManager](ctx),
 	}
+	provider.SetRemoveEmojis(options.RemoveEmojis)
 	filePath := filemanager.BasePath(ctx, options.Path)
 	provider.path, _ = filepath.Abs(filePath)
 	watcher, err := fswatch.NewWatcher(fswatch.Options{

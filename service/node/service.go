@@ -24,6 +24,7 @@ func RegisterService(registry *boxService.Registry) {
 type Service struct {
 	boxService.Adapter
 	ctx               context.Context
+	cancel            context.CancelFunc
 	logger            log.ContextLogger
 	inboundManagers   map[string]constant.InboundManager
 	bandwidthManager  constant.BandwidthLimiterManager
@@ -32,13 +33,17 @@ type Service struct {
 	rateManager       constant.RateLimiterManager
 	options           option.NodeServiceOptions
 
+	nodeManager    CM.NodeManager
+
 	mtx sync.Mutex
 }
 
 func NewService(ctx context.Context, logger log.ContextLogger, tag string, options option.NodeServiceOptions) (adapter.Service, error) {
+	ctx, cancel := context.WithCancel(ctx)
 	return &Service{
-		Adapter: boxService.NewAdapter(C.TypeManager, tag),
+		Adapter: boxService.NewAdapter(C.TypeNode, tag),
 		ctx:     ctx,
+		cancel:  cancel,
 		logger:  logger,
 		options: options,
 	}, nil
@@ -57,16 +62,23 @@ func (s *Service) Start(stage adapter.StartStage) error {
 	if !ok {
 		return E.New("invalid ", s.options.Manager, " manager")
 	}
+	s.nodeManager = nodeManager
 	inboundManager := service.FromContext[adapter.InboundManager](s.ctx)
 	outboundManager := service.FromContext[adapter.OutboundManager](s.ctx)
 	s.inboundManagers = map[string]constant.InboundManager{
-		"hysteria":  inbound.NewHysteriaManager(),
-		"hysteria2": inbound.NewHysteria2Manager(),
-		"mtproxy":   inbound.NewMTProxyManager(),
-		"trojan":    inbound.NewTrojanManager(),
-		"tuic":      inbound.NewTUICManager(),
-		"vless":     inbound.NewVLESSManager(),
-		"vmess":     inbound.NewVMessManager(),
+		"anytls":      inbound.NewAnyTLSManager(),
+		"http":        inbound.NewHTTPManager(),
+		"hysteria":    inbound.NewHysteriaManager(),
+		"hysteria2":   inbound.NewHysteria2Manager(),
+		"mixed":       inbound.NewMixedManager(),
+		"mtproxy":     inbound.NewMTProxyManager(),
+		"naive":       inbound.NewNaiveManager(),
+		"socks":       inbound.NewSocksManager(),
+		"trojan":      inbound.NewTrojanManager(),
+		"trusttunnel": inbound.NewTrustTunnelManager(),
+		"tuic":        inbound.NewTUICManager(),
+		"vless":       inbound.NewVLESSManager(),
+		"vmess":       inbound.NewVMessManager(),
 	}
 	s.connectionManager = limiter.NewConnectionLimiterManager(s.ctx, nodeManager, s.logger)
 	s.bandwidthManager = limiter.NewBandwidthLimiterManager(s.ctx, nodeManager, s.logger)
@@ -320,5 +332,6 @@ func (s *Service) IsOnline() bool {
 }
 
 func (s *Service) Close() error {
+	s.cancel()
 	return nil
 }

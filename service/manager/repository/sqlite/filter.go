@@ -2,10 +2,12 @@ package sqlite
 
 import (
 	"encoding/json"
+	"slices"
 	"strconv"
 
 	"github.com/huandu/go-sqlbuilder"
-	"github.com/sagernet/sing-box/common/byteformats"
+	"github.com/sagernet/sing/common/byteformats"
+	E "github.com/sagernet/sing/common/exceptions"
 )
 
 type Filter func(sb *sqlbuilder.SelectBuilder, value []string) error
@@ -84,12 +86,13 @@ func SpeedLessEqualThanFilter(field string) Filter {
 	}
 }
 
-func ExistsAndWhereInFilter(subquery *sqlbuilder.SelectBuilder, field string) Filter {
+func ExistsAndWhereInFilter(subqueryFactory func() *sqlbuilder.SelectBuilder, field string) Filter {
 	return func(sb *sqlbuilder.SelectBuilder, value []string) error {
 		values := make([]interface{}, len(value))
 		for i, v := range value {
 			values[i] = v
 		}
+		subquery := subqueryFactory()
 		subquery.Where(subquery.In(field, values...))
 		sb.Where(sb.Exists(subquery))
 		return nil
@@ -110,38 +113,54 @@ func InFilter(field string) Filter {
 	}
 }
 
-func SortAscFilter() Filter {
+func SortAscFilter(columns []string) Filter {
 	return func(sb *sqlbuilder.SelectBuilder, value []string) error {
-		sb.OrderByAsc(value[0])
-		return nil
-	}
-}
-
-func SortDescFilter() Filter {
-	return func(sb *sqlbuilder.SelectBuilder, value []string) error {
-		sb.OrderByDesc(value[0])
-		return nil
-	}
-}
-
-func ReplacedSortAscFilter(replace map[string]string) Filter {
-	return func(sb *sqlbuilder.SelectBuilder, value []string) error {
-		if replacedValue, ok := replace[value[0]]; ok {
-			sb.OrderByAsc(replacedValue)
-		} else {
-			sb.OrderByAsc(value[0])
+		column, err := isValidSortColumn(value[0], columns)
+		if err != nil {
+			return err
 		}
+		sb.OrderByAsc(column)
 		return nil
 	}
 }
 
-func ReplacedSortDescFilter(replace map[string]string) Filter {
+func SortDescFilter(columns []string) Filter {
 	return func(sb *sqlbuilder.SelectBuilder, value []string) error {
-		if replacedValue, ok := replace[value[0]]; ok {
-			sb.OrderByDesc(replacedValue)
-		} else {
-			sb.OrderByDesc(value[0])
+		column, err := isValidSortColumn(value[0], columns)
+		if err != nil {
+			return err
 		}
+		sb.OrderByDesc(column)
+		return nil
+	}
+}
+
+func ReplacedSortAscFilter(replace map[string]string, columns []string) Filter {
+	return func(sb *sqlbuilder.SelectBuilder, value []string) error {
+		column, ok := replace[value[0]]
+		if !ok {
+			column = value[0]
+		}
+		column, err := isValidSortColumn(column, columns)
+		if err != nil {
+			return err
+		}
+		sb.OrderByAsc(column)
+		return nil
+	}
+}
+
+func ReplacedSortDescFilter(replace map[string]string, columns []string) Filter {
+	return func(sb *sqlbuilder.SelectBuilder, value []string) error {
+		column, ok := replace[value[0]]
+		if !ok {
+			column = value[0]
+		}
+		column, err := isValidSortColumn(column, columns)
+		if err != nil {
+			return err
+		}
+		sb.OrderByDesc(column)
 		return nil
 	}
 }
@@ -166,4 +185,11 @@ func OffsetFilter() Filter {
 		sb.Offset(offset)
 		return nil
 	}
+}
+
+func isValidSortColumn(column string, columns []string) (string, error) {
+	if slices.Contains(columns, column) {
+		return column, nil
+	}
+	return "", E.New("invalid sort column \"", column, "\"")
 }

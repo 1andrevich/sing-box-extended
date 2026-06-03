@@ -11,8 +11,9 @@ import (
 )
 
 type TrojanManager struct {
-	access   sync.Mutex
 	inbounds map[string]*TrojanUserManager
+
+	mtx sync.Mutex
 }
 
 func NewTrojanManager() *TrojanManager {
@@ -22,8 +23,8 @@ func NewTrojanManager() *TrojanManager {
 }
 
 func (m *TrojanManager) AddUserManager(inbound adapter.Inbound) error {
-	m.access.Lock()
-	defer m.access.Unlock()
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 	m.inbounds[inbound.Tag()] = &TrojanUserManager{
 		inbound:  inbound.(*trojan.Inbound),
 		usersMap: make(map[string]option.TrojanUser),
@@ -32,15 +33,15 @@ func (m *TrojanManager) AddUserManager(inbound adapter.Inbound) error {
 }
 
 func (m *TrojanManager) GetUserManager(tag string) (constant.UserManager, bool) {
-	m.access.Lock()
-	defer m.access.Unlock()
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 	inbound, ok := m.inbounds[tag]
 	return inbound, ok
 }
 
 func (m *TrojanManager) GetUserManagerTags() []string {
-	m.access.Lock()
-	defer m.access.Unlock()
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 	tags := make([]string, 0, len(m.inbounds))
 	for tag := range m.inbounds {
 		tags = append(tags, tag)

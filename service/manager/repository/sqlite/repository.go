@@ -9,8 +9,8 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/huandu/go-sqlbuilder"
-	"github.com/sagernet/sing-box/common/byteformats"
 	"github.com/sagernet/sing-box/service/manager/constant"
+	"github.com/sagernet/sing/common/byteformats"
 	_ "modernc.org/sqlite"
 )
 
@@ -31,6 +31,13 @@ func NewSQLiteRepository(ctx context.Context, dsn string) (*SQLiteRepository, er
 		return nil, err
 	}
 	return &SQLiteRepository{db: db, ctx: ctx}, nil
+}
+
+func notFoundErr(err error) error {
+	if errors.Is(err, sql.ErrNoRows) {
+		return constant.ErrNotFound
+	}
+	return err
 }
 
 func (r *SQLiteRepository) CreateSquad(squad constant.SquadCreate) (constant.Squad, error) {
@@ -134,7 +141,7 @@ func (r *SQLiteRepository) GetSquad(id int) (constant.Squad, error) {
 		&s.CreatedAt,
 		&s.UpdatedAt,
 	)
-	return s, err
+	return s, notFoundErr(err)
 }
 
 func (r *SQLiteRepository) UpdateSquad(id int, squad constant.SquadUpdate) (constant.Squad, error) {
@@ -446,13 +453,9 @@ func (r *SQLiteRepository) GetNode(uuid string) (constant.Node, error) {
 		&n.CreatedAt,
 		&n.UpdatedAt,
 	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return n, constant.ErrNotFound
-	}
 	n.SquadIDs = []int(squadIDs)
-	return n, err
+	return n, notFoundErr(err)
 }
-
 func (r *SQLiteRepository) UpdateNode(uuid string, node constant.NodeUpdate) (constant.Node, error) {
 	var n constant.Node
 	err := r.db.QueryRowContext(
@@ -693,7 +696,7 @@ func (r *SQLiteRepository) GetUser(id int) (constant.User, error) {
 		&u.UpdatedAt,
 	)
 	u.SquadIDs = []int(squadIDs)
-	return u, err
+	return u, notFoundErr(err)
 }
 
 func (r *SQLiteRepository) UpdateUser(id int, user constant.UserUpdate) (constant.User, error) {
@@ -975,7 +978,7 @@ func (r *SQLiteRepository) GetConnectionLimiter(id int) (constant.ConnectionLimi
 		&cl.UpdatedAt,
 	)
 	cl.SquadIDs = []int(squadIDs)
-	return cl, err
+	return cl, notFoundErr(err)
 }
 
 func (r *SQLiteRepository) UpdateConnectionLimiter(id int, limiter constant.ConnectionLimiterUpdate) (constant.ConnectionLimiter, error) {
@@ -1280,7 +1283,7 @@ func (r *SQLiteRepository) GetBandwidthLimiter(id int) (constant.BandwidthLimite
 	)
 	bl.SquadIDs = []int(squadIDs)
 	bl.FlowKeys = []string(flowKeys)
-	return bl, err
+	return bl, notFoundErr(err)
 }
 
 func (r *SQLiteRepository) UpdateBandwidthLimiter(id int, limiter constant.BandwidthLimiterUpdate) (constant.BandwidthLimiter, error) {
@@ -1603,7 +1606,7 @@ func (r *SQLiteRepository) GetTrafficLimiter(id int) (constant.TrafficLimiter, e
 		&tl.UpdatedAt,
 	)
 	tl.SquadIDs = []int(squadIDs)
-	return tl, err
+	return tl, notFoundErr(err)
 }
 
 func (r *SQLiteRepository) UpdateTrafficLimiter(id int, limiter constant.TrafficLimiterUpdate) (constant.TrafficLimiter, error) {
@@ -1943,7 +1946,7 @@ func (r *SQLiteRepository) GetRateLimiter(id int) (constant.RateLimiter, error) 
 		&rl.UpdatedAt,
 	)
 	rl.SquadIDs = []int(squadIDs)
-	return rl, err
+	return rl, notFoundErr(err)
 }
 
 func (r *SQLiteRepository) UpdateRateLimiter(id int, limiter constant.RateLimiterUpdate) (constant.RateLimiter, error) {
@@ -2048,8 +2051,8 @@ func init() {
 		"created_at_end":   LessThanFilter("created_at"),
 		"updated_at_start": GreaterThanFilter("updated_at"),
 		"updated_at_end":   LessThanFilter("updated_at"),
-		"sort_asc":         SortAscFilter(),
-		"sort_desc":        SortDescFilter(),
+		"sort_asc":         SortAscFilter([]string{"id", "name", "created_at", "updated_at"}),
+		"sort_desc":        SortDescFilter([]string{"id", "name", "created_at", "updated_at"}),
 		"offset":           OffsetFilter(),
 		"limit":            LimitFilter(),
 	}
@@ -2057,8 +2060,8 @@ func init() {
 		"uuid": EqualFilter("uuid"),
 		"pk":   EqualFilter("uuid"),
 		"name": EqualFilter("name"),
-		"squad_id_in": ExistsAndWhereInFilter(
-			sqlbuilder.SQLite.NewSelectBuilder().
+		"squad_id_in": ExistsAndWhereInFilter(func() *sqlbuilder.SelectBuilder {
+			return sqlbuilder.SQLite.NewSelectBuilder().
 				Select(
 					"squad_id",
 				).
@@ -2067,23 +2070,22 @@ func init() {
 				).
 				From(
 					"node_to_squad",
-				),
-			"node_to_squad.squad_id",
-		),
+				)
+		}, "node_to_squad.squad_id"),
 		"created_at_start": GreaterThanFilter("created_at"),
 		"created_at_end":   LessThanFilter("created_at"),
 		"updated_at_start": GreaterThanFilter("updated_at"),
 		"updated_at_end":   LessThanFilter("updated_at"),
-		"sort_asc":         SortAscFilter(),
-		"sort_desc":        SortDescFilter(),
+		"sort_asc":         SortAscFilter([]string{"uuid", "name", "created_at", "updated_at"}),
+		"sort_desc":        SortDescFilter([]string{"uuid", "name", "created_at", "updated_at"}),
 		"offset":           OffsetFilter(),
 		"limit":            LimitFilter(),
 	}
 	userFilters = map[string]Filter{
 		"id": EqualFilter("id"),
 		"pk": EqualFilter("id"),
-		"squad_id_in": ExistsAndWhereInFilter(
-			sqlbuilder.SQLite.NewSelectBuilder().
+		"squad_id_in": ExistsAndWhereInFilter(func() *sqlbuilder.SelectBuilder {
+			return sqlbuilder.SQLite.NewSelectBuilder().
 				Select(
 					"squad_id",
 				).
@@ -2092,26 +2094,24 @@ func init() {
 				).
 				From(
 					"user_to_squad",
-				),
-			"user_to_squad.squad_id",
-		),
+				)
+		}, "user_to_squad.squad_id"),
 		"username":         EqualFilter("username"),
 		"inbound":          EqualFilter("inbound"),
-		"type":             EqualFilter("type"),
 		"created_at_start": GreaterThanFilter("created_at"),
 		"created_at_end":   LessThanFilter("created_at"),
 		"updated_at_start": GreaterThanFilter("updated_at"),
 		"updated_at_end":   LessThanFilter("updated_at"),
-		"sort_asc":         SortAscFilter(),
-		"sort_desc":        SortDescFilter(),
+		"sort_asc":         SortAscFilter([]string{"id", "username", "inbound", "type", "created_at", "updated_at"}),
+		"sort_desc":        SortDescFilter([]string{"id", "username", "inbound", "type", "created_at", "updated_at"}),
 		"offset":           OffsetFilter(),
 		"limit":            LimitFilter(),
 	}
 	connectionLimiterFilters = map[string]Filter{
 		"id": EqualFilter("id"),
 		"pk": EqualFilter("id"),
-		"squad_id_in": ExistsAndWhereInFilter(
-			sqlbuilder.SQLite.NewSelectBuilder().
+		"squad_id_in": ExistsAndWhereInFilter(func() *sqlbuilder.SelectBuilder {
+			return sqlbuilder.SQLite.NewSelectBuilder().
 				Select(
 					"squad_id",
 				).
@@ -2120,9 +2120,8 @@ func init() {
 				).
 				From(
 					"connection_limiter_to_squad",
-				),
-			"connection_limiter_to_squad.squad_id",
-		),
+				)
+		}, "connection_limiter_to_squad.squad_id"),
 		"strategy":         EqualFilter("strategy"),
 		"username":         EqualFilter("username"),
 		"outbound":         EqualFilter("outbound"),
@@ -2132,16 +2131,16 @@ func init() {
 		"created_at_end":   LessThanFilter("created_at"),
 		"updated_at_start": GreaterThanFilter("updated_at"),
 		"updated_at_end":   LessThanFilter("updated_at"),
-		"sort_asc":         SortAscFilter(),
-		"sort_desc":        SortDescFilter(),
+		"sort_asc":         SortAscFilter([]string{"id", "username", "outbound", "strategy", "connection_type", "lock_type", "count", "created_at", "updated_at"}),
+		"sort_desc":        SortDescFilter([]string{"id", "username", "outbound", "strategy", "connection_type", "lock_type", "count", "created_at", "updated_at"}),
 		"offset":           OffsetFilter(),
 		"limit":            LimitFilter(),
 	}
 	bandwidthLimiterFilters = map[string]Filter{
 		"id": EqualFilter("id"),
 		"pk": EqualFilter("id"),
-		"squad_id_in": ExistsAndWhereInFilter(
-			sqlbuilder.SQLite.NewSelectBuilder().
+		"squad_id_in": ExistsAndWhereInFilter(func() *sqlbuilder.SelectBuilder {
+			return sqlbuilder.SQLite.NewSelectBuilder().
 				Select(
 					"squad_id",
 				).
@@ -2150,31 +2149,31 @@ func init() {
 				).
 				From(
 					"bandwidth_limiter_to_squad",
-				),
-			"bandwidth_limiter_to_squad.squad_id",
-		),
+				)
+		}, "bandwidth_limiter_to_squad.squad_id"),
 		"strategy":         EqualFilter("strategy"),
 		"mode":             EqualFilter("mode"),
-		"type":             EqualFilter("type"),
 		"username":         EqualFilter("username"),
-		"down_start":       SpeedGreaterEqualThanFilter("raw_down"),
-		"down_end":         SpeedLessEqualThanFilter("raw_down"),
-		"up_start":         SpeedGreaterEqualThanFilter("raw_up"),
-		"up_end":           SpeedLessEqualThanFilter("raw_up"),
 		"created_at_start": GreaterThanFilter("created_at"),
 		"created_at_end":   LessThanFilter("created_at"),
 		"updated_at_start": GreaterThanFilter("updated_at"),
 		"updated_at_end":   LessThanFilter("updated_at"),
-		"sort_asc":         ReplacedSortAscFilter(map[string]string{"down": "raw_down", "up": "raw_up"}),
-		"sort_desc":        ReplacedSortDescFilter(map[string]string{"down": "raw_down", "up": "raw_up"}),
-		"offset":           OffsetFilter(),
-		"limit":            LimitFilter(),
+		"sort_asc": ReplacedSortAscFilter(
+			map[string]string{"speed": "raw_speed"},
+			[]string{"id", "username", "outbound", "strategy", "mode", "raw_speed", "created_at", "updated_at"},
+		),
+		"sort_desc": ReplacedSortDescFilter(
+			map[string]string{"speed": "raw_speed"},
+			[]string{"id", "username", "outbound", "strategy", "mode", "raw_speed", "created_at", "updated_at"},
+		),
+		"offset": OffsetFilter(),
+		"limit":  LimitFilter(),
 	}
 	trafficLimiterFilters = map[string]Filter{
 		"id": EqualFilter("id"),
 		"pk": EqualFilter("id"),
-		"squad_id_in": ExistsAndWhereInFilter(
-			sqlbuilder.SQLite.NewSelectBuilder().
+		"squad_id_in": ExistsAndWhereInFilter(func() *sqlbuilder.SelectBuilder {
+			return sqlbuilder.SQLite.NewSelectBuilder().
 				Select(
 					"squad_id",
 				).
@@ -2183,31 +2182,36 @@ func init() {
 				).
 				From(
 					"traffic_limiter_to_squad",
-				),
-			"traffic_limiter_to_squad.squad_id",
-		),
+				)
+		}, "traffic_limiter_to_squad.squad_id"),
 		"username":         EqualFilter("username"),
 		"outbound":         EqualFilter("outbound"),
 		"strategy":         EqualFilter("strategy"),
 		"mode":             EqualFilter("mode"),
-		"used_start":    SpeedGreaterEqualThanFilter("raw_used"),
-		"used_end":      SpeedLessEqualThanFilter("raw_used"),
+		"used_start":       SpeedGreaterEqualThanFilter("raw_used"),
+		"used_end":         SpeedLessEqualThanFilter("raw_used"),
 		"quota_start":      SpeedGreaterEqualThanFilter("raw_quota"),
 		"quota_end":        SpeedLessEqualThanFilter("raw_quota"),
 		"created_at_start": GreaterThanFilter("created_at"),
 		"created_at_end":   LessThanFilter("created_at"),
 		"updated_at_start": GreaterThanFilter("updated_at"),
 		"updated_at_end":   LessThanFilter("updated_at"),
-		"sort_asc":         ReplacedSortAscFilter(map[string]string{"used": "raw_used", "quota": "raw_quota"}),
-		"sort_desc":        ReplacedSortDescFilter(map[string]string{"used": "raw_used", "quota": "raw_quota"}),
-		"offset":           OffsetFilter(),
-		"limit":            LimitFilter(),
+		"sort_asc": ReplacedSortAscFilter(
+			map[string]string{"used": "raw_used", "quota": "raw_quota"},
+			[]string{"id", "username", "outbound", "strategy", "mode", "raw_used", "raw_quota", "created_at", "updated_at"},
+		),
+		"sort_desc": ReplacedSortDescFilter(
+			map[string]string{"used": "raw_used", "quota": "raw_quota"},
+			[]string{"id", "username", "outbound", "strategy", "mode", "raw_used", "raw_quota", "created_at", "updated_at"},
+		),
+		"offset": OffsetFilter(),
+		"limit":  LimitFilter(),
 	}
 	rateLimiterFilters = map[string]Filter{
 		"id": EqualFilter("id"),
 		"pk": EqualFilter("id"),
-		"squad_id_in": ExistsAndWhereInFilter(
-			sqlbuilder.SQLite.NewSelectBuilder().
+		"squad_id_in": ExistsAndWhereInFilter(func() *sqlbuilder.SelectBuilder {
+			return sqlbuilder.SQLite.NewSelectBuilder().
 				Select(
 					"squad_id",
 				).
@@ -2216,9 +2220,8 @@ func init() {
 				).
 				From(
 					"rate_limiter_to_squad",
-				),
-			"rate_limiter_to_squad.squad_id",
-		),
+				)
+		}, "rate_limiter_to_squad.squad_id"),
 		"strategy":         EqualFilter("strategy"),
 		"username":         EqualFilter("username"),
 		"outbound":         EqualFilter("outbound"),
@@ -2230,8 +2233,8 @@ func init() {
 		"created_at_end":   LessThanFilter("created_at"),
 		"updated_at_start": GreaterThanFilter("updated_at"),
 		"updated_at_end":   LessThanFilter("updated_at"),
-		"sort_asc":         SortAscFilter(),
-		"sort_desc":        SortDescFilter(),
+		"sort_asc":         SortAscFilter([]string{"id", "username", "outbound", "strategy", "connection_type", "count", "interval", "created_at", "updated_at"}),
+		"sort_desc":        SortDescFilter([]string{"id", "username", "outbound", "strategy", "connection_type", "count", "interval", "created_at", "updated_at"}),
 		"offset":           OffsetFilter(),
 		"limit":            LimitFilter(),
 	}

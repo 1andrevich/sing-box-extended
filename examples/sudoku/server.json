@@ -1,0 +1,15 @@
+{
+  "inbounds": [
+    {
+      "type": "sudoku",
+      "listen": "::",
+      "listen_port": 443,
+      "key": "your-secret-key"
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "direct"
+    }
+  ]
+}

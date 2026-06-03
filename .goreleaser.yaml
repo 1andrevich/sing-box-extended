@@ -11,6 +11,7 @@ builds:
       - -X github.com/sagernet/sing-box/constant.Version={{ .Version }}
       - -s
       - -buildid=
+      - -checklinkname=0
     tags:
       - with_gvisor
       - with_quic
@@ -22,8 +23,13 @@ builds:
       - with_tailscale
       - with_masque
       - with_mtproxy
+      - with_openvpn
+      - with_trusttunnel
+      - with_sudoku
       - with_manager
       - with_admin_panel
+      - badlinkname
+      - tfogo_checklinkname0
     env:
       - CGO_ENABLED=0
       - GOTOOLCHAIN=local
@@ -54,6 +60,11 @@ builds:
       - with_tailscale
       - with_masque
       - with_mtproxy
+      - with_openvpn
+      - with_trusttunnel
+      - with_sudoku
+      - badlinkname
+      - tfogo_checklinkname0
     targets:
       - linux_mips
       - linux_mips_softfloat
@@ -107,9 +118,14 @@ builds:
       - with_tailscale
       - with_masque
       - with_mtproxy
-      - with_naive_outbound
+      - with_openvpn
+      - with_trusttunnel
+      - with_sudoku
       - with_manager
       - with_admin_panel
+      - badlinkname
+      - tfogo_checklinkname0
+      - with_naive_outbound
       - with_purego
     env:
       - CGO_ENABLED=0
@@ -134,9 +150,14 @@ builds:
       - with_tailscale
       - with_masque
       - with_mtproxy
-      - with_naive_outbound
+      - with_openvpn
+      - with_trusttunnel
+      - with_sudoku
       - with_manager
       - with_admin_panel
+      - badlinkname
+      - tfogo_checklinkname0
+      - with_naive_outbound
       - with_purego
     env:
       - CGO_ENABLED=0
@@ -161,9 +182,14 @@ builds:
       - with_tailscale
       - with_masque
       - with_mtproxy
-      - with_naive_outbound
+      - with_openvpn
+      - with_trusttunnel
+      - with_sudoku
       - with_manager
       - with_admin_panel
+      - badlinkname
+      - tfogo_checklinkname0
+      - with_naive_outbound
       - with_purego
     env:
       - CGO_ENABLED=0
@@ -188,9 +214,14 @@ builds:
       - with_tailscale
       - with_masque
       - with_mtproxy
-      - with_naive_outbound
+      - with_openvpn
+      - with_trusttunnel
+      - with_sudoku
       - with_manager
       - with_admin_panel
+      - badlinkname
+      - tfogo_checklinkname0
+      - with_naive_outbound
       - with_purego
     env:
       - CGO_ENABLED=0
@@ -215,8 +246,13 @@ builds:
       - with_tailscale
       - with_masque
       - with_mtproxy
+      - with_openvpn
+      - with_trusttunnel
+      - with_sudoku
       - with_manager
       - with_admin_panel
+      - badlinkname
+      - tfogo_checklinkname0
       - with_naive_outbound
     env:
       - CGO_ENABLED=1
@@ -258,8 +294,13 @@ builds:
       - with_tailscale
       - with_masque
       - with_mtproxy
+      - with_openvpn
+      - with_trusttunnel
+      - with_sudoku
       - with_manager
       - with_admin_panel
+      - badlinkname
+      - tfogo_checklinkname0
       - with_naive_outbound
       - with_musl
     env:
@@ -309,6 +350,11 @@ builds:
       - with_tailscale
       - with_masque
       - with_mtproxy
+      - with_openvpn
+      - with_trusttunnel
+      - with_sudoku
+      - badlinkname
+      - tfogo_checklinkname0
     targets:
       - linux_mips
       - linux_mips_softfloat
@@ -372,16 +418,6 @@ archives:
     files:
       - LICENSE
     name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ if and .Mips (not (eq .Mips "hardfloat")) }}-{{ .Mips }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}'
-  - id: archive-naive-glibc
-    <<: *template
-    builds:
-      - naive-glibc
-    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ if and .Mips (not (eq .Mips "hardfloat")) }}-{{ .Mips }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}-glibc'
-  - id: archive-naive-musl
-    <<: *template
-    builds:
-      - naive-musl
-    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ if and .Mips (not (eq .Mips "hardfloat")) }}-{{ .Mips }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}-musl'
   - id: archive-naive-purego-linux-amd64
     <<: *template
     builds:
@@ -418,11 +454,16 @@ archives:
       - src: dist/naive-purego-windows-arm64_*/libcronet*
         strip_parent: true
     name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}-purego'
-  - id: archive-legacy
+  - id: archive-naive-glibc
     <<: *template
     builds:
-      - legacy
-    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}-legacy'
+      - naive-glibc
+    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ if and .Mips (not (eq .Mips "hardfloat")) }}-{{ .Mips }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}-glibc'
+  - id: archive-naive-musl
+    <<: *template
+    builds:
+      - naive-musl
+    name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ if and .Mips (not (eq .Mips "hardfloat")) }}-{{ .Mips }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}-musl'
   - id: archive-compressed
     <<: *template
     builds:

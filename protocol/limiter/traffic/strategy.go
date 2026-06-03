@@ -6,11 +6,11 @@ import (
 	"sync"
 
 	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing-box/common/onclose"
 	E "github.com/sagernet/sing/common/exceptions"
 )
 
 type (
-	CloseHandlerFunc  = func()
 	ConnWrapper       = func(ctx context.Context, conn net.Conn, limiter TrafficLimiter, reverse bool) net.Conn
 	PacketConnWrapper = func(ctx context.Context, conn net.PacketConn, limiter TrafficLimiter, reverse bool) net.PacketConn
 )
@@ -72,32 +72,60 @@ func (s *GlobalTrafficStrategy) getLimiter(ctx context.Context, metadata *adapte
 	return s.limiter, nil
 }
 
+type connEntry struct {
+	conn net.Conn
+}
+
+
+
 type ManagerTrafficStrategy struct {
 	strategies map[string]TrafficStrategy
-	mtx        sync.Mutex
+	conns      map[string][]*connEntry
+
+	mtx sync.Mutex
 }
 
 func NewManagerTrafficStrategy() *ManagerTrafficStrategy {
-	return &ManagerTrafficStrategy{}
+	return &ManagerTrafficStrategy{
+		conns: make(map[string][]*connEntry),
+	}
 }
 
 func (s *ManagerTrafficStrategy) wrapConn(ctx context.Context, conn net.Conn, metadata *adapter.InboundContext, reverse bool) (net.Conn, error) {
-	strategy, err := s.getStrategy(ctx, metadata)
+	strategy, user, err := s.getStrategy(ctx, metadata)
 	if err != nil {
 		return nil, err
 	}
-	return strategy.wrapConn(ctx, conn, metadata, reverse)
+	wrapped, err := strategy.wrapConn(ctx, conn, metadata, reverse)
+	if err != nil {
+		return nil, err
+	}
+	entry := &connEntry{conn: conn}
+	s.mtx.Lock()
+	s.conns[user] = append(s.conns[user], entry)
+	s.mtx.Unlock()
+	return onclose.NewConn(wrapped, func() {
+		s.mtx.Lock()
+		entries := s.conns[user]
+		for i, e := range entries {
+			if e == entry {
+				s.conns[user] = append(entries[:i], entries[i+1:]...)
+				break
+			}
+		}
+		s.mtx.Unlock()
+	}), nil
 }
 
 func (s *ManagerTrafficStrategy) wrapPacketConn(ctx context.Context, conn net.PacketConn, metadata *adapter.InboundContext, reverse bool) (net.PacketConn, error) {
-	strategy, err := s.getStrategy(ctx, metadata)
+	strategy, _, err := s.getStrategy(ctx, metadata)
 	if err != nil {
 		return nil, err
 	}
 	return strategy.wrapPacketConn(ctx, conn, metadata, reverse)
 }
 
-func (s *ManagerTrafficStrategy) getStrategy(ctx context.Context, metadata *adapter.InboundContext) (TrafficStrategy, error) {
+func (s *ManagerTrafficStrategy) getStrategy(ctx context.Context, metadata *adapter.InboundContext) (TrafficStrategy, string, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	var user string
@@ -106,15 +134,25 @@ func (s *ManagerTrafficStrategy) getStrategy(ctx context.Context, metadata *adap
 	}
 	strategy, ok := s.strategies[user]
 	if ok {
-		return strategy, nil
+		return strategy, user, nil
 	}
-	return nil, E.New("user strategy not found: ", user)
+	return nil, user, E.New("user strategy not found: ", user)
 }
 
 func (s *ManagerTrafficStrategy) UpdateStrategies(strategies map[string]TrafficStrategy) {
 	s.mtx.Lock()
-	defer s.mtx.Unlock()
+	var closedEntries []*connEntry
+	for user, entries := range s.conns {
+		if _, exists := strategies[user]; !exists {
+			closedEntries = append(closedEntries, entries...)
+			delete(s.conns, user)
+		}
+	}
 	s.strategies = strategies
+	s.mtx.Unlock()
+	for _, entry := range closedEntries {
+		entry.conn.Close()
+	}
 }
 
 type BypassTrafficStrategy struct{}

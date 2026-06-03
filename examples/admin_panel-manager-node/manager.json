@@ -64,6 +64,8 @@
       "listen_port": 7000,
       "manager": "my-manager",
       "api_key": "change-me-secret",
+      "keep_alive": "10s",
+      "keep_alive_timeout": "5s",
       // Enable TLS for production deployments (the node connects via gRPC over h2):
       // "tls": { // https://sing-box.sagernet.org/configuration/shared/tls/#inbound
       //   "enabled": true,

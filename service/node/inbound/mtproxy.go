@@ -11,8 +11,9 @@ import (
 )
 
 type MTProxyManager struct {
-	access   sync.Mutex
 	inbounds map[string]*MTProxyUserManager
+
+	mtx sync.Mutex
 }
 
 func NewMTProxyManager() *MTProxyManager {
@@ -22,8 +23,8 @@ func NewMTProxyManager() *MTProxyManager {
 }
 
 func (m *MTProxyManager) AddUserManager(inbound adapter.Inbound) error {
-	m.access.Lock()
-	defer m.access.Unlock()
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 	m.inbounds[inbound.Tag()] = &MTProxyUserManager{
 		inbound:  inbound.(*mtproxy.Inbound),
 		usersMap: make(map[string]option.MTProxyUser),
@@ -32,15 +33,15 @@ func (m *MTProxyManager) AddUserManager(inbound adapter.Inbound) error {
 }
 
 func (m *MTProxyManager) GetUserManager(tag string) (constant.UserManager, bool) {
-	m.access.Lock()
-	defer m.access.Unlock()
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 	inbound, ok := m.inbounds[tag]
 	return inbound, ok
 }
 
 func (m *MTProxyManager) GetUserManagerTags() []string {
-	m.access.Lock()
-	defer m.access.Unlock()
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
 	tags := make([]string, 0, len(m.inbounds))
 	for tag := range m.inbounds {
 		tags = append(tags, tag)

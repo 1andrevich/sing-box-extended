@@ -2,6 +2,7 @@ package limiter
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/sagernet/sing-box/adapter"
@@ -50,6 +51,7 @@ func (m *BandwidthLimiterManager) AddBandwidthLimiterStrategyManager(outbound ad
 		manager:       m,
 		strategy:      strategy,
 		strategiesMap: make(map[string]bandwidth.BandwidthStrategy),
+		limitersMap:   make(map[string]CM.BandwidthLimiter),
 	}
 	return nil
 }
@@ -75,6 +77,7 @@ type BandwidthLimiterStrategyManager struct {
 	manager       *BandwidthLimiterManager
 	strategy      ManagedBandwidthStrategy
 	strategiesMap map[string]bandwidth.BandwidthStrategy
+	limitersMap   map[string]CM.BandwidthLimiter
 
 	mtx sync.Mutex
 }
@@ -86,12 +89,25 @@ func (i *BandwidthLimiterStrategyManager) postUpdate() {
 func (i *BandwidthLimiterStrategyManager) UpdateBandwidthLimiter(limiter CM.BandwidthLimiter) {
 	i.mtx.Lock()
 	defer i.mtx.Unlock()
+	if existing, ok := i.strategiesMap[limiter.Username]; ok {
+		oldLimiter := i.limitersMap[limiter.Username]
+		if isSameStrategy(oldLimiter, limiter) {
+			if oldLimiter.RawSpeed != limiter.RawSpeed {
+				if s, ok := existing.(bandwidth.SpeedUpdater); ok {
+					s.SetSpeed(limiter.RawSpeed)
+				}
+			}
+			i.limitersMap[limiter.Username] = limiter
+			return
+		}
+	}
 	strategy, err := bandwidth.CreateStrategy(limiter.Strategy, limiter.Mode, limiter.ConnectionType, limiter.RawSpeed, limiter.FlowKeys)
 	if err != nil {
 		i.manager.logger.ErrorContext(i.manager.ctx, err)
 		return
 	}
 	i.strategiesMap[limiter.Username] = strategy
+	i.limitersMap[limiter.Username] = limiter
 	i.postUpdate()
 }
 
@@ -117,4 +133,11 @@ func (i *BandwidthLimiterStrategyManager) DeleteBandwidthLimiter(username string
 	defer i.mtx.Unlock()
 	delete(i.strategiesMap, username)
 	i.postUpdate()
+}
+
+func isSameStrategy(a, b CM.BandwidthLimiter) bool {
+	return a.Strategy == b.Strategy &&
+		a.Mode == b.Mode &&
+		a.ConnectionType == b.ConnectionType &&
+		slices.Equal(a.FlowKeys, b.FlowKeys)
 }
