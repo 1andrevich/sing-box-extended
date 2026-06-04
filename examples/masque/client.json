@@ -29,6 +29,7 @@
       "use_ipv6": false,
       "profile": {
         "detour": "direct",
+        // For getting existing MASQUE device profile, else sing-box will create new profile
         "id": "",
         "auth_token": ""
       },
@@ -36,7 +37,7 @@
       "udp_keepalive_period": "30s",
       "udp_initial_packet_size": 0,
       "reconnect_delay": "5s",
-      "tls": {
+      "tls": { // TLS fields for HTTP2
         "insecure": false,
         "cipher_suites": [],
         "curve_preferences": [],
