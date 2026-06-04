@@ -89,6 +89,15 @@ func (h *Inbound) Start(stage adapter.StartStage) error {
 	}
 	var err error
 	if common.Contains(h.network, N.NetworkTCP) {
+		h.httpTLSConfig, err = tls.NewServer(h.ctx, h.logger, common.PtrValueOrDefault(h.options.TLS))
+		if err != nil {
+			return err
+		}
+		if len(h.httpTLSConfig.NextProtos()) == 0 {
+			h.httpTLSConfig.SetNextProtos([]string{http2.NextProtoTLS})
+		} else if !common.Contains(h.httpTLSConfig.NextProtos(), http2.NextProtoTLS) {
+			h.httpTLSConfig.SetNextProtos(append([]string{http2.NextProtoTLS}, h.httpTLSConfig.NextProtos()...))
+		}
 		listener, err := h.listener.ListenTCP()
 		if err != nil {
 			return err
@@ -98,15 +107,6 @@ func (h *Inbound) Start(stage adapter.StartStage) error {
 			BaseContext: func(net.Listener) context.Context {
 				return h.ctx
 			},
-		}
-		h.httpTLSConfig, err = tls.NewServer(h.ctx, h.logger, common.PtrValueOrDefault(h.options.TLS))
-		if err != nil {
-			return err
-		}
-		if len(h.httpTLSConfig.NextProtos()) == 0 {
-			h.httpTLSConfig.SetNextProtos([]string{http2.NextProtoTLS})
-		} else if !common.Contains(h.httpTLSConfig.NextProtos(), http2.NextProtoTLS) {
-			h.httpTLSConfig.SetNextProtos(append([]string{http2.NextProtoTLS}, h.httpTLSConfig.NextProtos()...))
 		}
 		err = h.httpTLSConfig.Start()
 		if err != nil {
