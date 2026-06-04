@@ -279,7 +279,7 @@ func (m *ConnectionManager) connectionCopy(ctx context.Context, source net.Conn,
 	if !direction {
 		if err == nil {
 			m.logger.DebugContext(ctx, "connection upload finished")
-		} else if !E.IsClosedOrCanceled(err) && !strings.Contains(err.Error(), "NO_ERROR") {
+		} else if !E.IsClosedOrCanceled(err) && !strings.Contains(err.Error(), "NO_ERROR") && !strings.Contains(err.Error(), "CANCEL") && !strings.Contains(err.Error(), "body closed") {
 			m.logger.ErrorContext(ctx, "connection upload closed: ", err)
 		} else {
 			m.logger.TraceContext(ctx, "connection upload closed")

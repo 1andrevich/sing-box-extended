@@ -67,27 +67,27 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 		protoConf.AEADMethod = options.AEADMethod
 	}
 
-	in := &Inbound{
+	inbound := &Inbound{
 		Adapter:   inbound.NewAdapter(C.TypeSudoku, tag),
 		router:    router,
 		logger:    logger,
 		protoConf: protoConf,
 		fallback:  strings.TrimSpace(options.Fallback),
 	}
-	if in.fallback != "" {
-		in.tunnelSrv = sudoku.NewHTTPMaskTunnelServerWithFallback(&in.protoConf)
+	if inbound.fallback != "" {
+		inbound.tunnelSrv = sudoku.NewHTTPMaskTunnelServerWithFallback(&inbound.protoConf)
 	} else {
-		in.tunnelSrv = sudoku.NewHTTPMaskTunnelServer(&in.protoConf)
+		inbound.tunnelSrv = sudoku.NewHTTPMaskTunnelServer(&inbound.protoConf)
 	}
 
-	in.listener = listener.New(listener.Options{
+	inbound.listener = listener.New(listener.Options{
 		Context:           ctx,
 		Logger:            logger,
 		Network:           []string{N.NetworkTCP},
 		Listen:            options.ListenOptions,
-		ConnectionHandler: in,
+		ConnectionHandler: inbound,
 	})
-	return in, nil
+	return inbound, nil
 }
 
 func (h *Inbound) Start(stage adapter.StartStage) error {
@@ -173,6 +173,7 @@ func (h *Inbound) routeTCP(ctx context.Context, conn net.Conn, target string, me
 }
 
 func (h *Inbound) handleUoT(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
+	h.logger.InfoContext(ctx, "inbound packet connection")
 	packetConn := sudoku.NewUoTPacketConn(conn)
 	h.router.RoutePacketConnectionEx(ctx, bufio.NewPacketConn(packetConn), metadata, onClose)
 }

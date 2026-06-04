@@ -31,7 +31,6 @@ import (
 	"github.com/sagernet/sing-box/protocol/limiter/rate"
 	"github.com/sagernet/sing-box/protocol/limiter/traffic"
 	"github.com/sagernet/sing-box/protocol/mieru"
-
 	"github.com/sagernet/sing-box/protocol/mixed"
 	"github.com/sagernet/sing-box/protocol/naive"
 	"github.com/sagernet/sing-box/protocol/parser"
@@ -81,6 +80,7 @@ func InboundRegistry() *inbound.Registry {
 	shadowtls.RegisterInbound(registry)
 	vless.RegisterInbound(registry)
 	anytls.RegisterInbound(registry)
+	mieru.RegisterInbound(registry)
 
 	bond.RegisterInbound(registry)
 	failover.RegisterInbound(registry)

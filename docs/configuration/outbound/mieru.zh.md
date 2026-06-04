@@ -19,6 +19,7 @@ icon: material/new-box
   "username": "asdf",
   "password": "hjkl",
   "multiplexing": "MULTIPLEXING_LOW",
+  "traffic_pattern": "GgQIARAK",
 
   ... // 拨号字段
 }
@@ -48,7 +49,7 @@ icon: material/new-box
 
 ==必填==
 
-通信协议。仅可设为 `TCP`。
+通信协议。可设为 `TCP` 或 `UDP`。
 
 #### username
 
@@ -65,6 +66,10 @@ mieru 密码。
 #### multiplexing
 
 多路复用设置。可以设为 `MULTIPLEXING_OFF`，`MULTIPLEXING_LOW`，`MULTIPLEXING_MIDDLE`，`MULTIPLEXING_HIGH`。其中 `MULTIPLEXING_OFF` 会关闭多路复用功能。
+
+#### traffic_pattern
+
+一个 base64 字符串用于微调网络行为。
 
 ### 拨号字段
 

@@ -22,11 +22,9 @@ import (
 
 	"net/http"
 	"net/http/httputil"
-)
 
-type TLSClientConfig interface {
-	Client(conn net.Conn) (net.Conn, error)
-}
+	"github.com/sagernet/sing-box/common/tls"
+)
 
 type TunnelMode string
 
@@ -66,7 +64,7 @@ const (
 
 type TunnelDialOptions struct {
 	Mode         string
-	TLSConfig    TLSClientConfig
+	TLSConfig    tls.Config
 	HostOverride string
 	// PathRoot is an optional first-level path prefix for all HTTP tunnel endpoints.
 	// Example: "aabbcc" => "/aabbcc/session", "/aabbcc/api/v1/upload", ...
@@ -91,7 +89,7 @@ type TunnelDialOptions struct {
 }
 
 type TunnelClientOptions struct {
-	TLSConfig    TLSClientConfig
+	TLSConfig    tls.Config
 	HostOverride string
 	DialContext  func(ctx context.Context, network, addr string) (net.Conn, error)
 	MaxIdleConns int
@@ -244,7 +242,7 @@ type httpClientTarget struct {
 	headerHost string
 }
 
-func buildHTTPTransport(serverAddress string, tlsEnabled bool, tlsConfig TLSClientConfig, hostOverride string, dialContext func(ctx context.Context, network, addr string) (net.Conn, error), maxIdleConns int) (*http.Transport, httpClientTarget, error) {
+func buildHTTPTransport(serverAddress string, tlsEnabled bool, tlsConfig tls.Config, hostOverride string, dialContext func(ctx context.Context, network, addr string) (net.Conn, error), maxIdleConns int) (*http.Transport, httpClientTarget, error) {
 	if dialContext == nil {
 		panic("httpmask: DialContext is nil")
 	}

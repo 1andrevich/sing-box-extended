@@ -27,14 +27,16 @@
       "tag": "mieru-out",
       "server": "example.com",
       "server_port": 27017,
-      "server_ports": "27017-27019",
+      "server_ports": [
+        "27017-27019"
+      ],
       "transport": "TCP",
       "username": "username",
       "password": "password",
       // valid: MULTIPLEXING_DEFAULT / MULTIPLEXING_OFF / MULTIPLEXING_LOW
       //        MULTIPLEXING_MIDDLE / MULTIPLEXING_HIGH
-      "multiplexing": "MULTIPLEXING_LOW"
-      // Dial Fields
+      "multiplexing": "MULTIPLEXING_LOW",
+      "traffic_pattern": "GgQIARAK"
     }
   ],
   "route": {

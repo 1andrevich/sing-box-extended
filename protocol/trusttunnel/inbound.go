@@ -138,7 +138,7 @@ func (h *Inbound) Close() error {
 	return common.Close(
 		h.listener,
 		common.PtrOrNil(h.httpServer),
-		h.quicService,
+		common.PtrOrNil(h.quicService),
 		h.tlsConfig,
 	)
 }

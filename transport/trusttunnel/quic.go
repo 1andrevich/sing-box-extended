@@ -114,6 +114,9 @@ func (s *QUICService) Start(ctx context.Context, udpConn net.PacketConn, tlsConf
 			return ctx
 		},
 	}
+	if err := qtls.ConfigureHTTP3(tlsConfig); err != nil {
+		return err
+	}
 	quicListener, err := qtls.ListenEarly(udpConn, tlsConfig, &quic.Config{
 		MaxIdleTimeout:    DefaultSessionTimeout * 2,
 		MaxIncomingStreams: 1 << 60,

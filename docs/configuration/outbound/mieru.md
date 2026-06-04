@@ -19,6 +19,7 @@ icon: material/new-box
   "username": "asdf",
   "password": "hjkl",
   "multiplexing": "MULTIPLEXING_LOW",
+  "traffic_pattern": "GgQIARAK",
 
   ... // Dial Fields
 }
@@ -48,7 +49,7 @@ Must set at least one field between `server_port` and `server_ports`.
 
 ==Required==
 
-Transmission protocol. The only allowed value is `TCP`.
+Transmission protocol. Allowed values are `TCP` and `UDP`.
 
 #### username
 
@@ -65,6 +66,10 @@ mieru password.
 #### multiplexing
 
 Multiplexing level. Supported values are `MULTIPLEXING_OFF`, `MULTIPLEXING_LOW`, `MULTIPLEXING_MIDDLE`, `MULTIPLEXING_HIGH`. `MULTIPLEXING_OFF` disables multiplexing.
+
+#### traffic_pattern
+
+A base64 string to fine tune network behavior.
 
 ### Dial Fields
 
