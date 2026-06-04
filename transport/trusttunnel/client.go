@@ -16,9 +16,9 @@ import (
 
 	"github.com/sagernet/sing-box/common/tls"
 	C "github.com/sagernet/sing-box/constant"
+	"github.com/sagernet/sing/common/bufio"
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
-	"github.com/sagernet/sing/common/bufio"
 	"github.com/sagernet/sing/common/ntp"
 
 	"github.com/sagernet/quic-go"
@@ -42,9 +42,8 @@ type Dialer interface {
 }
 
 type ClientOptions struct {
-	TLSDialer         tls.Dialer
-	QUICDialer        N.Dialer
-	QUICTLSConfig     tls.Config
+	Dialer            N.Dialer
+	TLSConfig         tls.Config
 	Server            M.Socksaddr
 	Username          string
 	Password          string
@@ -87,17 +86,20 @@ func NewClient(ctx context.Context, options ClientOptions) (*Client, error) {
 			cancel()
 			return nil, err
 		}
+		if len(options.TLSConfig.NextProtos()) == 0 {
+			options.TLSConfig.SetNextProtos([]string{"h3"})
+		}
 		client.roundTripper = &http3.Transport{
 			QUICConfig: &quic.Config{
 				MaxIdleTimeout:  DefaultSessionTimeout * 2,
 				KeepAlivePeriod: DefaultHealthCheckTimeout,
 			},
 			Dial: func(ctx context.Context, addr string, tlsCfg *stdtls.Config, cfg *quic.Config) (*quic.Conn, error) {
-				udpConn, err := options.QUICDialer.DialContext(ctx, N.NetworkUDP, client.server)
+				udpConn, err := options.Dialer.DialContext(ctx, N.NetworkUDP, client.server)
 				if err != nil {
 					return nil, err
 				}
-				conn, err := qtls.DialEarly(ctx, bufio.NewUnbindPacketConn(udpConn), udpConn.RemoteAddr(), options.QUICTLSConfig, cfg)
+				conn, err := qtls.DialEarly(ctx, bufio.NewUnbindPacketConn(udpConn), udpConn.RemoteAddr(), options.TLSConfig, cfg)
 				if err != nil {
 					return nil, err
 				}
@@ -106,9 +108,13 @@ func NewClient(ctx context.Context, options ClientOptions) (*Client, error) {
 			},
 		}
 	} else {
+		if len(options.TLSConfig.NextProtos()) == 0 {
+			options.TLSConfig.SetNextProtos([]string{http2.NextProtoTLS})
+		}
+		tlsDialer := tls.NewDialer(options.Dialer, options.TLSConfig)
 		client.roundTripper = &http2.Transport{
 			DialTLSContext: func(ctx context.Context, network, addr string, _ *stdtls.Config) (net.Conn, error) {
-				return options.TLSDialer.DialContext(ctx, network, client.server)
+				return tlsDialer.DialContext(ctx, network, client.server)
 			},
 			AllowHTTP: true,
 		}

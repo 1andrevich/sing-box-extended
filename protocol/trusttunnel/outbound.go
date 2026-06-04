@@ -18,8 +18,6 @@ import (
 	"github.com/sagernet/sing/common/logger"
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
-
-	"golang.org/x/net/http2"
 )
 
 func RegisterOutbound(registry *outbound.Registry) {
@@ -42,7 +40,13 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 	}
 	serverAddr := options.ServerOptions.Build()
 	networkList := options.Network.Build()
+	tlsConfig, err := tls.NewClient(ctx, logger, options.Server, common.PtrValueOrDefault(options.TLS))
+	if err != nil {
+		return nil, err
+	}
 	clientOpts := trusttunnel.ClientOptions{
+		Dialer:            outboundDialer,
+		TLSConfig:         tlsConfig,
 		Server:            serverAddr,
 		Username:          options.Username,
 		Password:          options.Password,
@@ -51,26 +55,6 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 		CWND:              options.CWND,
 		BBRProfile:        options.BBRProfile,
 		HealthCheck:       options.HealthCheck,
-	}
-	if options.QUIC {
-		tlsConfig, err := tls.NewClient(ctx, logger, options.Server, common.PtrValueOrDefault(options.TLS))
-		if err != nil {
-			return nil, err
-		}
-		if len(tlsConfig.NextProtos()) == 0 {
-			tlsConfig.SetNextProtos([]string{"h3"})
-		}
-		clientOpts.QUICDialer = outboundDialer
-		clientOpts.QUICTLSConfig = tlsConfig
-	} else {
-		tlsConfig, err := tls.NewClient(ctx, logger, options.Server, common.PtrValueOrDefault(options.TLS))
-		if err != nil {
-			return nil, err
-		}
-		if len(tlsConfig.NextProtos()) == 0 {
-			tlsConfig.SetNextProtos([]string{http2.NextProtoTLS})
-		}
-		clientOpts.TLSDialer = tls.NewDialer(outboundDialer, tlsConfig)
 	}
 	var client trusttunnel.Dialer
 	if options.Multiplex != nil && options.Multiplex.Enabled {

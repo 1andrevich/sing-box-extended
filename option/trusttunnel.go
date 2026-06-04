@@ -26,13 +26,13 @@ type TrustTunnelOutboundOptions struct {
 	DialerOptions
 	ServerOptions
 	OutboundTLSOptionsContainer
-	Username             string                      `json:"username,omitempty"`
-	Password             string                      `json:"password,omitempty"`
-	Network              NetworkList                 `json:"network,omitempty"`
-	HealthCheck          bool                        `json:"health_check,omitempty"`
-	QUIC                 bool                        `json:"quic,omitempty"`
-	CongestionController string                      `json:"congestion_controller,omitempty"`
-	BBRProfile           string                      `json:"bbr_profile,omitempty"`
-	CWND                 int                         `json:"cwnd,omitempty"`
+	Username             string                       `json:"username,omitempty"`
+	Password             string                       `json:"password,omitempty"`
+	Network              NetworkList                  `json:"network,omitempty"`
+	HealthCheck          bool                         `json:"health_check,omitempty"`
+	QUIC                 bool                         `json:"quic,omitempty"`
+	CongestionController string                       `json:"congestion_controller,omitempty"`
+	BBRProfile           string                       `json:"bbr_profile,omitempty"`
+	CWND                 int                          `json:"cwnd,omitempty"`
 	Multiplex            *TrustTunnelMultiplexOptions `json:"multiplex,omitempty"`
 }

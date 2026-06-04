@@ -6,6 +6,8 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/sagernet/quic-go"
+	"github.com/sagernet/quic-go/http3"
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/adapter/inbound"
 	"github.com/sagernet/sing-box/common/listener"
@@ -14,11 +16,13 @@ import (
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing-box/transport/trusttunnel"
+	"github.com/sagernet/sing-quic"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/auth"
 	"github.com/sagernet/sing/common/logger"
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
+	"github.com/sagernet/sing/common/ntp"
 	aTLS "github.com/sagernet/sing/common/tls"
 
 	"golang.org/x/net/http2"
@@ -31,36 +35,34 @@ func RegisterInbound(registry *inbound.Registry) {
 
 type Inbound struct {
 	inbound.Adapter
-	ctx         context.Context
-	router      adapter.Router
-	logger      logger.ContextLogger
-	listener    *listener.Listener
-	tlsConfig   tls.ServerConfig
-	service     *trusttunnel.Service
-	httpServer  *http.Server
-	quicService *trusttunnel.QUICService
-	network     []string
+	ctx            context.Context
+	router         adapter.Router
+	logger         logger.ContextLogger
+	options        option.TrustTunnelInboundOptions
+	listener       *listener.Listener
+	service        *trusttunnel.Service
+	httpServer     *http.Server
+	http3Server    *http3.Server
+	httpTLSConfig  tls.ServerConfig
+	http3TLSConfig tls.ServerConfig
+	network        []string
 }
 
 func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, options option.TrustTunnelInboundOptions) (adapter.Inbound, error) {
 	if options.TLS == nil || !options.TLS.Enabled {
 		return nil, C.ErrTLSRequired
 	}
-	tlsConfig, err := tls.NewServer(ctx, logger, common.PtrValueOrDefault(options.TLS))
-	if err != nil {
-		return nil, err
-	}
 	networkList := options.Network.Build()
 	if len(networkList) == 0 {
 		networkList = []string{N.NetworkTCP}
 	}
 	inbound := &Inbound{
-		Adapter:   inbound.NewAdapter(C.TypeTrustTunnel, tag),
-		ctx:       ctx,
-		router:    router,
-		logger:    logger,
-		tlsConfig: tlsConfig,
-		network:   networkList,
+		Adapter: inbound.NewAdapter(C.TypeTrustTunnel, tag),
+		ctx:     ctx,
+		router:  router,
+		logger:  logger,
+		options: options,
+		network: networkList,
 		listener: listener.New(listener.Options{
 			Context: ctx,
 			Logger:  logger,
@@ -78,9 +80,6 @@ func NewInbound(ctx context.Context, router adapter.Router, logger log.ContextLo
 	}
 	service.UpdateUsers(userMap)
 	inbound.service = service
-	if common.Contains(networkList, N.NetworkUDP) {
-		inbound.quicService = trusttunnel.NewQUICService(service, options.CongestionController, options.CWND, options.BBRProfile)
-	}
 	return inbound, nil
 }
 
@@ -88,14 +87,9 @@ func (h *Inbound) Start(stage adapter.StartStage) error {
 	if stage != adapter.StartStateStart {
 		return nil
 	}
-	if h.tlsConfig != nil {
-		err := h.tlsConfig.Start()
-		if err != nil {
-			return err
-		}
-	}
+	var err error
 	if common.Contains(h.network, N.NetworkTCP) {
-		tcpListener, err := h.listener.ListenTCP()
+		listener, err := h.listener.ListenTCP()
 		if err != nil {
 			return err
 		}
@@ -105,31 +99,70 @@ func (h *Inbound) Start(stage adapter.StartStage) error {
 				return h.ctx
 			},
 		}
+		h.httpTLSConfig, err = tls.NewServer(h.ctx, h.logger, common.PtrValueOrDefault(h.options.TLS))
+		if err != nil {
+			return err
+		}
+		if len(h.httpTLSConfig.NextProtos()) == 0 {
+			h.httpTLSConfig.SetNextProtos([]string{http2.NextProtoTLS})
+		} else if !common.Contains(h.httpTLSConfig.NextProtos(), http2.NextProtoTLS) {
+			h.httpTLSConfig.SetNextProtos(append([]string{http2.NextProtoTLS}, h.httpTLSConfig.NextProtos()...))
+		}
+		err = h.httpTLSConfig.Start()
+		if err != nil {
+			return err
+		}
+		listener = aTLS.NewListener(listener, h.httpTLSConfig)
 		go func() {
-			var l net.Listener = tcpListener
-			if h.tlsConfig != nil {
-				if len(h.tlsConfig.NextProtos()) == 0 {
-					h.tlsConfig.SetNextProtos([]string{http2.NextProtoTLS})
-				} else if !common.Contains(h.tlsConfig.NextProtos(), http2.NextProtoTLS) {
-					h.tlsConfig.SetNextProtos(append([]string{http2.NextProtoTLS}, h.tlsConfig.NextProtos()...))
-				}
-				l = aTLS.NewListener(tcpListener, h.tlsConfig)
-			}
-			sErr := h.httpServer.Serve(l)
+			sErr := h.httpServer.Serve(listener)
 			if sErr != nil && !errors.Is(sErr, http.ErrServerClosed) {
 				h.logger.Error("HTTP server error: ", sErr)
 			}
 		}()
 	}
 	if common.Contains(h.network, N.NetworkUDP) {
+		h.http3TLSConfig, err = tls.NewServer(h.ctx, h.logger, common.PtrValueOrDefault(h.options.TLS))
+		if err != nil {
+			return err
+		}
+		if err := qtls.ConfigureHTTP3(h.http3TLSConfig); err != nil {
+			return err
+		}
+		err = h.http3TLSConfig.Start()
+		if err != nil {
+			return err
+		}
 		udpConn, err := h.listener.ListenUDP()
 		if err != nil {
 			return err
 		}
-		err = h.quicService.Start(h.ctx, udpConn, h.tlsConfig)
+		congestionControlFactory, err := trusttunnel.NewCongestionControl(
+			h.options.CongestionController,
+			h.options.CWND,
+			h.options.BBRProfile,
+			ntp.TimeFuncFromContext(h.ctx),
+		)
 		if err != nil {
 			return err
 		}
+		h.http3Server = &http3.Server{
+			Handler: h.service,
+			ConnContext: func(ctx context.Context, conn *quic.Conn) context.Context {
+				conn.SetCongestionControl(congestionControlFactory(conn))
+				return ctx
+			},
+		}
+		quicListener, err := qtls.ListenEarly(udpConn, h.http3TLSConfig, &quic.Config{
+			MaxIdleTimeout:     trusttunnel.DefaultSessionTimeout * 2,
+			MaxIncomingStreams: 1 << 60,
+			Allow0RTT:          true,
+		})
+		if err != nil {
+			return err
+		}
+		go func() {
+			_ = h.http3Server.ServeListener(quicListener)
+		}()
 	}
 	return nil
 }
@@ -138,8 +171,9 @@ func (h *Inbound) Close() error {
 	return common.Close(
 		h.listener,
 		common.PtrOrNil(h.httpServer),
-		common.PtrOrNil(h.quicService),
-		h.tlsConfig,
+		common.PtrOrNil(h.http3Server),
+		h.httpTLSConfig,
+		h.http3TLSConfig,
 	)
 }
 
