@@ -289,11 +289,21 @@ func uniquifyTags(opts []option.Outbound) {
 
 func removeEmojisFromTags(opts []option.Outbound) {
 	for i, opt := range opts {
-		cleaned := emojiRegex.ReplaceAllString(opt.Tag, "")
+		cleaned := flagRegex.ReplaceAllStringFunc(opt.Tag, flagToCountryCode)
+		cleaned = emojiRegex.ReplaceAllString(cleaned, "")
 		cleaned = multiSpaceRegex.ReplaceAllString(cleaned, " ")
 		opts[i].Tag = strings.TrimSpace(cleaned)
 	}
 }
 
+func flagToCountryCode(flag string) string {
+	runes := []rune(flag)
+	if len(runes) == 2 {
+		return string(rune(runes[0]-0x1F1E6+'A')) + string(rune(runes[1]-0x1F1E6+'A')) + " "
+	}
+	return ""
+}
+
+var flagRegex = regexp.MustCompile(`[\x{1F1E6}-\x{1F1FF}]{2}`)
 var emojiRegex = regexp.MustCompile(`[\x{1F1E0}-\x{1F1FF}\x{1F300}-\x{1F9FF}\x{2600}-\x{27BF}\x{FE00}-\x{FE0F}\x{200D}]+`)
 var multiSpaceRegex = regexp.MustCompile(`\s{2,}`)
