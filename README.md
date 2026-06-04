@@ -8,7 +8,7 @@ Sing-box with extended features.
 
 ## 🔥 Features
 
-### Outbounds
+### Protocols
 - **WARP** — Cloudflare WARP integration through WireGuard
 - **MASQUE** — Cloudflare MASQUE proxy over QUIC / HTTP-2
 - **MTProxy** — Telegram MTProxy server with FakeTLS and domain fronting
