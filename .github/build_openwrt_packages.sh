@@ -28,20 +28,24 @@ esac
 
 PKG_VERSION="${VERSION//-/\~}"
 
+FPM_DIR=$(mktemp -d)
+sed "s|release/|$PROJECT/release/|g;s|^LICENSE|$PROJECT/LICENSE|" "$PROJECT/.fpm_openwrt" > "$FPM_DIR/.fpm"
+trap 'rm -rf "$FPM_DIR"' EXIT
+
 for ARCH in $ARCHITECTURES; do
-  cp "$PROJECT/.fpm_openwrt" "$PROJECT/.fpm"
-  fpm -t deb \
+  TMP_DEB=$(mktemp -p "$DIST" _openwrt_XXXXXX.deb)
+  rm -f "$TMP_DEB"
+  (cd "$FPM_DIR" && fpm -t deb \
     -v "$PKG_VERSION" \
-    -p "$DIST/_openwrt_tmp.deb" \
+    -p "$TMP_DEB" \
     --architecture all \
-    "$BINARY_PATH=/usr/bin/sing-box"
-  rm -f "$PROJECT/.fpm"
+    "$BINARY_PATH=/usr/bin/sing-box")
 
   bash "$PROJECT/.github/deb2ipk.sh" \
     "$ARCH" \
-    "$DIST/_openwrt_tmp.deb" \
+    "$TMP_DEB" \
     "$DIST/sing-box-extended_${VERSION}_openwrt_${ARCH}.ipk"
-  rm -f "$DIST/_openwrt_tmp.deb"
+  rm -f "$TMP_DEB"
 
   if command -v apk &>/dev/null; then
     bash "$PROJECT/.github/build_openwrt_apk.sh" \

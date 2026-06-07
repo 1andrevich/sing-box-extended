@@ -514,12 +514,6 @@ archives:
       - compressed-mips
       - compressed-android
     name_template: '{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ if and .Mips (not (eq .Mips "hardfloat")) }}-{{ .Mips }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}-compressed'
-  - id: archive-openwrt
-    <<: *template
-    builds:
-      - openwrt
-      - openwrt-mips
-    name_template: '{{ .ProjectName }}-{{ .Version }}-openwrt-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ if and .Mips (not (eq .Mips "hardfloat")) }}-{{ .Mips }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}'
 source:
   enabled: false
   name_template: '{{ .ProjectName }}-{{ .Version }}.source'
