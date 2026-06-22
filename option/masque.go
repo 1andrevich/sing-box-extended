@@ -22,6 +22,7 @@ type MASQUEOutboundOptions struct {
 }
 
 type MASQUEOutboundTLSOptions struct {
+	ServerName            string                              `json:"server_name,omitempty"`
 	Insecure              bool                                `json:"insecure,omitempty"`
 	CipherSuites          badoption.Listable[string]          `json:"cipher_suites,omitempty"`
 	CurvePreferences      badoption.Listable[CurvePreference] `json:"curve_preferences,omitempty"`
