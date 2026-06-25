@@ -78,6 +78,10 @@ func (s *platformInterfaceStub) AutoDetectInterfaceControl(fd int) error {
 	return nil
 }
 
+func (s *platformInterfaceStub) BindInterfaceControl(fd int, interfaceName string) error {
+	return os.ErrInvalid
+}
+
 func (s *platformInterfaceStub) UsePlatformInterface() bool {
 	return false
 }
