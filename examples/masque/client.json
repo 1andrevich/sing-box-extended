@@ -42,6 +42,7 @@
       "congestion_controller": "bbr",
       "cwnd": 0,
       "tls": { // TLS fields for HTTP2
+        "server_name": "", // SNI; empty = default "consumer-masque.cloudflareclient.com"
         "insecure": false,
         "cipher_suites": [],
         "curve_preferences": [],

@@ -102,7 +102,11 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 			logger.ErrorContext(ctx, E.New("failed to generate cert: ", err))
 			return
 		}
-		tlsConfig, err := tls.NewMASQUEClient(ctx, logger, "consumer-masque.cloudflareclient.com", cert, privKey, peerPubKey, common.PtrValueOrDefault(options.TLS))
+		serverName := cloudflare.ConnectSNI
+		if options.TLS != nil && options.TLS.ServerName != "" {
+			serverName = options.TLS.ServerName
+		}
+		tlsConfig, err := tls.NewMASQUEClient(ctx, logger, serverName, cert, privKey, peerPubKey, common.PtrValueOrDefault(options.TLS))
 		if err != nil {
 			logger.ErrorContext(ctx, E.New("failed to prepare TLS config: ", err))
 			return
