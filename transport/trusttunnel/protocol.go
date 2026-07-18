@@ -71,6 +71,9 @@ type httpConn struct {
 	localAddr  net.Addr
 	deadline   *time.Timer
 	done       chan struct{}
+	closed     bool
+
+	mtx sync.Mutex
 }
 
 func (h *httpConn) setup(body io.ReadCloser, err error) {
@@ -93,6 +96,9 @@ func (h *httpConn) waitCreated() error {
 }
 
 func (h *httpConn) Close() error {
+	h.mtx.Lock()
+	h.closed = true
+	h.mtx.Unlock()
 	h.setup(nil, net.ErrClosed)
 	if closer, ok := h.writer.(io.Closer); ok {
 		_ = closer.Close()
@@ -117,11 +123,28 @@ func (h *httpConn) Close() error {
 }
 
 func (h *httpConn) writeFlush(p []byte) (n int, err error) {
-	n, err = h.writer.Write(p)
+	err = h.writeChunks(p)
+	if err != nil {
+		return 0, err
+	}
+	return len(p), nil
+}
+
+func (h *httpConn) writeChunks(chunks ...[]byte) error {
+	h.mtx.Lock()
+	defer h.mtx.Unlock()
+	if h.closed {
+		return net.ErrClosed
+	}
+	for _, chunk := range chunks {
+		if _, err := h.writer.Write(chunk); err != nil {
+			return err
+		}
+	}
 	if h.flusher != nil {
 		h.flusher.Flush()
 	}
-	return n, err
+	return nil
 }
 
 func (h *httpConn) RemoteAddr() net.Addr {
