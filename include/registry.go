@@ -91,7 +91,6 @@ func InboundRegistry() *inbound.Registry {
 	registerStubForRemovedInbounds(registry)
 	registerMTProxyInbound(registry)
 	registerSudokuInbound(registry)
-	registerSnellInbound(registry)
 	registerCallInbound(registry)
 
 	return registry
@@ -121,7 +120,6 @@ func OutboundRegistry() *outbound.Registry {
 	mieru.RegisterOutbound(registry)
 	anytls.RegisterOutbound(registry)
 	registerMASQUEOutbound(registry)
-	registerOpenVPNOutbound(registry)
 
 	bond.RegisterOutbound(registry)
 	failover.RegisterOutbound(registry)
@@ -137,7 +135,6 @@ func OutboundRegistry() *outbound.Registry {
 	registerQUICOutbounds(registry)
 	registerStubForRemovedOutbounds(registry)
 	registerSudokuOutbound(registry)
-	registerSnellOutbound(registry)
 	registerCallOutbound(registry)
 
 	return registry

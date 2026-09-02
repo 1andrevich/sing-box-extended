@@ -18,7 +18,6 @@ const (
 	TypeWireGuard         = "wireguard"
 	TypeWARP              = "warp"
 	TypeMASQUE            = "masque"
-	TypeOpenVPN           = "openvpn"
 	TypeMTProxy           = "mtproxy"
 	TypeParser            = "parser"
 	TypeHysteria          = "hysteria"
@@ -28,7 +27,6 @@ const (
 	TypeMieru             = "mieru"
 	TypeAnyTLS            = "anytls"
 	TypeSudoku            = "sudoku"
-	TypeSnell             = "snell"
 	TypeCall              = "call"
 	TypeShadowsocksR      = "shadowsocksr"
 	TypeVLESS             = "vless"
@@ -100,8 +98,6 @@ func ProxyDisplayName(proxyType string) string {
 		return "WARP"
 	case TypeMASQUE:
 		return "MASQUE"
-	case TypeOpenVPN:
-		return "OpenVPN"
 	case TypeMTProxy:
 		return "MTProxy"
 	case TypeParser:
@@ -132,8 +128,6 @@ func ProxyDisplayName(proxyType string) string {
 		return "AnyTLS"
 	case TypeSudoku:
 		return "Sudoku"
-	case TypeSnell:
-		return "Snell"
 	case TypeCall:
 		return "Call"
 	case TypeFallback:
