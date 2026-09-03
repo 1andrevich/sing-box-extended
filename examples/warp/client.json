@@ -46,7 +46,10 @@
         "auth_token": "",
         "license_key": "",
         "recreate": false
-      }
+      },
+      // Optional: override the peer endpoint instead of using the one returned by Cloudflare
+      "address": "engage.cloudflareclient.com",
+      "port": 2408
       // Dial Fields
     }
   ],
