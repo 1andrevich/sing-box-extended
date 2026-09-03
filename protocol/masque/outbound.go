@@ -155,7 +155,9 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 				Name:   options.Name,
 				CreateDialer: func(interfaceName string) N.Dialer {
 					return common.Must1(dialer.NewDefault(ctx, option.DialerOptions{
-						BindInterface: interfaceName,
+						AbstractDialerOptions: option.AbstractDialerOptions{
+							BindInterface: interfaceName,
+						},
 					}))
 				},
 				Dialer: outboundDialer,
