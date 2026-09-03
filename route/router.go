@@ -52,10 +52,10 @@ type Router struct {
 	started           chan struct{}
 }
 
-func NewRouter(ctx context.Context, logFactory log.Factory, options option.RouteOptions, dnsOptions option.DNSOptions) *Router {
+func NewRouter(ctx context.Context, logFactory log.Factory, name string, options option.RouteOptions, dnsOptions option.DNSOptions) *Router {
 	return &Router{
 		ctx:               ctx,
-		logger:            logFactory.NewLogger("router"),
+		logger:            logFactory.NewLogger(name),
 		inbound:           service.FromContext[adapter.InboundManager](ctx),
 		outbound:          service.FromContext[adapter.OutboundManager](ctx),
 		dns:               service.FromContext[adapter.DNSRouter](ctx),
