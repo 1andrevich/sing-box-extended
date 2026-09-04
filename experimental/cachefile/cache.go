@@ -51,6 +51,7 @@ type CacheFile struct {
 	storeDNS           bool
 	storeWARPConfig    bool
 	storeMASQUEConfig  bool
+	storeProviders     bool
 	disableExpire      bool
 	rdrcTimeout        time.Duration
 	optimisticTimeout  time.Duration
@@ -115,6 +116,7 @@ func New(ctx context.Context, logger logger.Logger, options option.CacheFileOpti
 		storeDNS:          options.StoreDNS,
 		storeWARPConfig:   options.StoreWARPConfig,
 		storeMASQUEConfig: options.StoreMASQUEConfig,
+		storeProviders:    options.StoreProviders,
 		rdrcTimeout:       rdrcTimeout,
 		saveDomain:        make(map[netip.Addr]string),
 		saveAddress4:      make(map[string]netip.Addr),
@@ -483,6 +485,10 @@ func (c *CacheFile) StoreWARPConfig() bool {
 
 func (c *CacheFile) StoreMASQUEConfig() bool {
 	return c.storeMASQUEConfig
+}
+
+func (c *CacheFile) StoreProviders() bool {
+	return c.storeProviders
 }
 
 func (c *CacheFile) LoadWARPConfig(tag string) *adapter.SavedBinary {
