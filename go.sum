@@ -507,6 +507,8 @@ github.com/shtorm-7/mtg-multi v1.11.0-extended-1.0.0 h1:iBLll4ZZG8ULQcHWs6gGslZW
 github.com/shtorm-7/mtg-multi v1.11.0-extended-1.0.0/go.mod h1:3rvdhwdPABkwKBdvgMt3VwMn9uSq8hpoHRezZ5jRJU0=
 github.com/shtorm-7/rmux v1.0.0 h1:oNXshcZVUEDU9u5ylqh3VBFQwus5LFH5yZD9KMTkSSw=
 github.com/shtorm-7/rmux v1.0.0/go.mod h1:6tVwUpgjMcCTi3iami7le2/rqhfR6aFPhwuyFzGNQcw=
+github.com/shtorm-7/rmux v1.0.1 h1:ES3/MEQIXG1FR/Lb70M1YFP8eHTPQ99OjPLkutGbLF4=
+github.com/shtorm-7/rmux v1.0.1/go.mod h1:6tVwUpgjMcCTi3iami7le2/rqhfR6aFPhwuyFzGNQcw=
 github.com/shtorm-7/sing v0.9.0-beta.4-extended-1.2.1 h1:wpPAKAhHdipRcA4wWtHF16JIrObOTCg9a1O7uowAumg=
 github.com/shtorm-7/sing v0.9.0-beta.4-extended-1.2.1/go.mod h1:K3Owt3xPhHugvlnlPPxZJ/exXdaJfEPOTNorGk4AXjo=
 github.com/shtorm-7/sing-mux v0.3.5-extended-1.0.0 h1:AfCNqpQlrdWnEd64wXN+cmoHlPMAszre+Wpkg/O8wvA=
