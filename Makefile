@@ -141,6 +141,22 @@ release_android: lib_android update_android_version build_android upload_android
 publish_android:
 	cd ../sing-box-for-android && ./gradlew :app:publishPlayReleaseBundle && ./gradlew --stop
 
+build_desktop_windows:
+	cd ../sing-box-for-desktop && pnpm install --frozen-lockfile && pnpm run package:win
+
+build_desktop_linux:
+	cd ../sing-box-for-desktop && pnpm install --frozen-lockfile && pnpm run package:linux
+
+upload_desktop:
+	mkdir -p dist/release_desktop
+	cp ../sing-box-for-desktop/release/SFW-*.exe dist/release_desktop 2>/dev/null || true
+	cp ../sing-box-for-desktop/release/SFL-*.deb ../sing-box-for-desktop/release/SFL-*.rpm ../sing-box-for-desktop/release/SFL-*.pkg.tar.zst dist/release_desktop 2>/dev/null || true
+	ghr --replace --draft --prerelease -p 5 "v${VERSION}" dist/release_desktop
+	./codeberg-release.sh --replace --draft --prerelease -p 5 "v${VERSION}" dist/release_desktop
+	rm -rf dist/release_desktop
+
+release_desktop: update_desktop_version build_desktop_windows build_desktop_linux upload_desktop
+
 # TODO: find why and remove `-destination 'generic/platform=iOS'`
 # TODO: remove xcode clean when fix control widget fixed
 build_ios:
